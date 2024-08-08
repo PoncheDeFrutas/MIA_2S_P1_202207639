@@ -1,6 +1,7 @@
 package main
 
 import (
+	"backend/analyzer"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"net/http"
@@ -47,5 +48,6 @@ func main() {
 }
 
 func processContent(content string) string {
-	return content
+	results := analyzer.Analyzer(content)
+	return results
 }
