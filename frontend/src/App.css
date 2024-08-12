@@ -1,0 +1,161 @@
+html, body {
+  height: 100%;
+  margin: 0;
+  font-family: Arial, sans-serif;
+}
+
+#root {
+  width: 100vw;
+  height: 100vh;
+  margin: 0;
+  text-align: center;
+}
+
+.App {
+  text-align: center;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background-color: #f0f0f0;
+}
+
+.App-header {
+  display: flex;
+  height: 10vh;
+  background-color: #333;
+  color: #ffffff;
+  padding: 0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.header-left, .header-right {
+  display: flex;
+  align-items: center;
+  color: #ffffff;
+}
+
+.header-left {
+  background-color: #dcdcdc;
+  flex: 0 0 20%;
+  padding: 0 20px;
+}
+
+.header-right {
+  background-color: #c0c0c0;
+  flex: 0 0 74%;
+  padding: 0 20px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.header-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+.header-button, .custom-file-upload {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 5px;
+  background-color: #ffffff;
+  color: #333;
+  cursor: pointer;
+  font-size: 16px;
+  transition: background-color 0.3s;
+}
+
+.header-button:hover, .custom-file-upload:hover {
+  background-color: #0f0e34;
+}
+
+.header-button:active, .custom-file-upload:active {
+  background-color: #042041;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.content {
+  display: flex;
+  flex: 1;
+  height: 85vh;
+  overflow: hidden;
+}
+
+.left-side, .right-side {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.left-side {
+  background-color: #dcdcdc;
+}
+
+.right-side {
+  background-color: #c0c0c0;
+}
+
+.output-area {
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  border: none;
+  resize: none;
+  background-color: #333;
+  color: #ffffff;
+  padding: 10px;
+  font-family: monospace;
+}
+
+.file-input {
+  display: none;
+}
+
+.file-input {
+  display: none;
+}
+
+.custom-file-upload {
+  display: inline-block;
+  padding: 10px 20px;
+  font-size: 16px;
+  font-weight: bold;
+  color: #333;
+  background-color: #ffffff;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  text-align: center;
+  transition: background-color 0.3s;
+  width: 100%;
+}
+
+.custom-file-upload:hover {
+  background-color: #0f0e34;
+}
+
+.custom-file-upload:active {
+  background-color: #042041;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.file-input {
+  display: none;
+}
+
+.file-upload-wrapper {
+  display: inline-block;
+}
+
+.custom-file-upload:hover {
+  background-color: #0f0e34;
+}
+
+.custom-file-upload:active {
+  background-color: #042041;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
+}
