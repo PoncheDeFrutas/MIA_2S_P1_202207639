@@ -42,7 +42,7 @@ func ParseRmDisk(tokens []string) (string, error) {
 		return "", fmt.Errorf("missing path")
 	}
 
-	err := deleteBinaryFile(cmd.Path)
+	err := commandRmDisk(cmd.Path)
 	if err != nil {
 		return "", err
 	}
@@ -50,7 +50,7 @@ func ParseRmDisk(tokens []string) (string, error) {
 	return fmt.Sprintf("RmDisk: %s", cmd.Path), nil
 }
 
-func deleteBinaryFile(path string) error {
+func commandRmDisk(path string) error {
 	err := os.Remove(path)
 	if err != nil {
 		return err

@@ -15,9 +15,9 @@ type Partition struct {
 }
 
 func (p *Partition) DefaultValue() {
-	p.PartStatus = '$'
-	p.PartType = '$'
-	p.PartFit = '$'
+	p.PartStatus = '0'
+	p.PartType = 'P'
+	p.PartFit = 'W'
 	p.PartStart = -1
 	p.PartSize = -1
 	copy(p.PartName[:], "$")

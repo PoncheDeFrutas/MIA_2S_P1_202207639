@@ -36,7 +36,7 @@ func Analyzer(input string) string {
 		case "rmdisk":
 			result, err = commands.ParseRmDisk(tokens[1:])
 		case "fdisk":
-			//result, err = commands.ParseFDisk(tokens[1:])
+			result, err = commands.ParserFDisk(tokens[1:])
 		default:
 			err = fmt.Errorf("unknown command: %s", tokens[0])
 		}

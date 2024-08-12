@@ -2,6 +2,7 @@ package structures
 
 import (
 	"backend/common"
+	"encoding/binary"
 	"math/rand"
 	"strings"
 )
@@ -31,10 +32,44 @@ func (m *MBR) CreateMBR(size int, fit string, path string) error {
 		m.MbrPartitions[i].PartCorrelative = int32(i + 1)
 	}
 
-	if err := common.WriteToFile(path, int64(0), m); err != nil {
+	if err := common.WriteToFile(path, int64(0), int64(binary.Size(m)), m); err != nil {
 		return err
 	}
 
+	return nil
+}
+
+func (m *MBR) FindFreePartition() int {
+	for i := range m.MbrPartitions {
+		if m.MbrPartitions[i].PartStart == -1 {
+			return i
+		}
+	}
+	return -1
+}
+
+func (m *MBR) FreeNamePartition(name string) bool {
+	for i := range m.MbrPartitions {
+		if strings.TrimRight(string(m.MbrPartitions[i].PartName[:]), "\x00") == name {
+			return false
+		}
+	}
+	return true
+}
+
+func (m *MBR) ExtendPartitionExist() bool {
+	for i := range m.MbrPartitions {
+		if m.MbrPartitions[i].PartType == 'E' {
+			return true
+		}
+	}
+	return false
+}
+
+func (m *MBR) ReadMBR(path string) error {
+	if err := common.ReadFromFile(path, int64(0), m); err != nil {
+		return err
+	}
 	return nil
 }
 

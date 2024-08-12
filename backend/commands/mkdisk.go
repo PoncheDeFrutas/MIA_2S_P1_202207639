@@ -77,20 +77,20 @@ func ParserMkDisk(tokens []string) (string, error) {
 		return "", fmt.Errorf("missing path")
 	}
 
-	if err := commandMkDisk(cmd); err != nil {
+	if err := cmd.commandMkDisk(); err != nil {
 		return "", err
 	}
 
 	return "", nil
 }
 
-func commandMkDisk(cmd *MkDisk) error {
+func (cmd *MkDisk) commandMkDisk() error {
 	sizeInBytes, err := common.ConvertToBytes(cmd.Size, cmd.Unit)
 	if err != nil {
 		return err
 	}
 
-	if err := createDisk(cmd, sizeInBytes); err != nil {
+	if err := cmd.createDisk(sizeInBytes); err != nil {
 		return err
 	}
 
@@ -104,7 +104,7 @@ func commandMkDisk(cmd *MkDisk) error {
 	return nil
 }
 
-func createDisk(cmd *MkDisk, sizeInBytes int) error {
+func (cmd *MkDisk) createDisk(sizeInBytes int) error {
 	if err := os.MkdirAll(filepath.Dir(cmd.Path), os.ModePerm); err != nil {
 		return err
 	}
