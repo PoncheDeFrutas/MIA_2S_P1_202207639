@@ -1,5 +1,7 @@
 package structures
 
+import "fmt"
+
 type EBR struct {
 	PartMount byte
 	PartFit   byte
@@ -17,4 +19,13 @@ func (e *EBR) DefaultValue() {
 	e.PartSize = -1
 	e.PartNext = -1
 	copy(e.PartName[:], "EBR-LOGICA")
+}
+
+func (e *EBR) Print() {
+	fmt.Println("PartMount: ", string(e.PartMount))
+	fmt.Println("PartFit: ", string(e.PartFit))
+	fmt.Println("PartStart: ", e.PartStart)
+	fmt.Println("PartSize: ", e.PartSize)
+	fmt.Println("PartNext: ", e.PartNext)
+	fmt.Println("PartName: ", string(e.PartName[:]))
 }

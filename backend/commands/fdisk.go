@@ -177,29 +177,30 @@ func (cmd *FDisk) createPartitionEntry(mbr *structures.MBR, indexPart int, index
 
 	copy(partition.PartName[:], cmd.Name)
 
-	if err := common.WriteToFile(cmd.Path, 0, int64(binary.Size(mbr)), mbr); err != nil {
-		return err
+	if partition.PartType != 'L' {
+		if err := common.WriteToFile(cmd.Path, 0, int64(binary.Size(mbr)), mbr); err != nil {
+			return err
+		}
 	}
 
-	if err := cmd.handlePartitionType(partition); err != nil {
+	if err := cmd.handlePartitionType(partition, mbr); err != nil {
 		return err
 	}
 
 	if err := common.ReadFromFile(cmd.Path, 0, mbr); err != nil {
 		return err
 	}
-	mbr.Print()
 	return nil
 }
 
-func (cmd *FDisk) handlePartitionType(partition *structures.Partition) error {
+func (cmd *FDisk) handlePartitionType(partition *structures.Partition, mbr *structures.MBR) error {
 	switch cmd.Type {
 	case "P":
 		return cmd.createPrimaryPartition(partition)
 	case "E":
 		return cmd.createExtendedPartition(partition)
 	case "L":
-		return cmd.createLogicalPartition(partition)
+		return cmd.createLogicalPartition(partition, mbr)
 	default:
 		return fmt.Errorf("unknown partition type")
 	}
@@ -219,7 +220,49 @@ func (cmd *FDisk) createExtendedPartition(partition *structures.Partition) error
 	return nil
 }
 
-func (cmd *FDisk) createLogicalPartition(partition *structures.Partition) error {
-	// Lógica para crear partición lógica
+func (cmd *FDisk) createLogicalPartition(partition *structures.Partition, mbr *structures.MBR) error {
+	extPartition := &structures.Partition{}
+
+	for i := range mbr.MbrPartitions {
+		if mbr.MbrPartitions[i].PartType == 'E' {
+			extPartition = &mbr.MbrPartitions[i]
+			partition.PartStart = extPartition.PartStart
+			break
+		}
+	}
+
+	ebr := &structures.EBR{}
+
+	if err := common.ReadFromFile(cmd.Path, int64(extPartition.PartStart), ebr); err != nil {
+		return err
+	}
+
+	for ebr.PartNext != -1 {
+		partition.PartStart = ebr.PartNext
+		if err := common.ReadFromFile(cmd.Path, int64(ebr.PartNext), ebr); err != nil {
+			return err
+		}
+	}
+
+	ebr.PartFit = partition.PartFit
+	ebr.PartStart = partition.PartStart + 30
+	ebr.PartSize = partition.PartSize
+	ebr.PartNext = ebr.PartSize + ebr.PartStart
+	copy(ebr.PartName[:], partition.PartName[:])
+
+	if err := common.WriteToFile(cmd.Path, int64(ebr.PartStart-30), int64(extPartition.PartStart+extPartition.PartSize), ebr); err != nil {
+		return err
+	}
+
+	ebrDefault := &structures.EBR{}
+	ebrDefault.DefaultValue()
+
+	if err := common.WriteToFile(cmd.Path, int64(ebr.PartNext), int64(extPartition.PartStart+extPartition.PartSize), ebrDefault); err != nil {
+		return err
+	}
+
+	if err := common.ReadFromFile(cmd.Path, int64(ebr.PartStart-30), ebr); err != nil {
+		return err
+	}
 	return nil
 }
