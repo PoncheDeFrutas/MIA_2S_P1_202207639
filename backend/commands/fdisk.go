@@ -1,10 +1,8 @@
 package commands
 
 import (
-	"backend/common"
-	"backend/manager"
 	"backend/structures"
-	"encoding/binary"
+	"backend/utils"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -28,7 +26,7 @@ func ParserFDisk(tokens []string) (string, error) {
 	matches := re.FindAllString(args, -1)
 
 	for _, match := range matches {
-		key, value, err := common.ParseToken(match)
+		key, value, err := utils.ParseToken(match)
 		if err != nil {
 			return "", err
 		}
@@ -105,11 +103,18 @@ func ParserFDisk(tokens []string) (string, error) {
 		return "", err
 	}
 
+	mbr := structures.MBR{}
+	if err := mbr.ReadMBR(cmd.Path); err != nil {
+		return "", err
+	}
+
+	mbr.Print()
+
 	return "", nil
 }
 
 func (cmd *FDisk) commandFDisk() error {
-	sizeInBytes, err := common.ConvertToBytes(cmd.Size, cmd.Unit)
+	sizeInBytes, err := utils.ConvertToBytes(cmd.Size, cmd.Unit)
 	if err != nil {
 		return err
 	}
@@ -119,150 +124,124 @@ func (cmd *FDisk) commandFDisk() error {
 		return err
 	}
 
-	if cmd.Type != "P" {
-		if err := cmd.validatePartitionType(mbr); err != nil {
+	switch cmd.Type {
+	case "P":
+		if err := cmd.createPrimaryPartition(mbr, sizeInBytes); err != nil {
 			return err
 		}
+	case "E":
+		if err := cmd.createExtendedPartition(mbr, sizeInBytes); err != nil {
+			return err
+		}
+	case "L":
+		if err := cmd.createLogicalPartition(mbr, sizeInBytes); err != nil {
+			return err
+		}
+	default:
+		return fmt.Errorf("invalid type: %s", cmd.Type)
 	}
-
-	return cmd.allocatePartition(mbr, sizeInBytes)
-}
-
-func (cmd *FDisk) validatePartitionType(mbr *structures.MBR) error {
-	extendExist := mbr.ExtendPartitionExist()
-
-	if (extendExist && cmd.Type == "E") || (!extendExist && cmd.Type == "L") {
-		return fmt.Errorf("invalid partition type: %s", cmd.Type)
-	}
-
 	return nil
 }
 
-func (cmd *FDisk) allocatePartition(mbr *structures.MBR, size int) error {
-	indexPart, indexByte, err := cmd.findAvailableSpace(mbr, size)
+func (cmd *FDisk) createPrimaryPartition(mbr *structures.MBR, sizeInBytes int) error {
+	indexPart, indexByte, err := cmd.findAvailableSpace(mbr, sizeInBytes)
 	if err != nil {
 		return err
 	}
 
-	return cmd.createPartitionEntry(mbr, indexPart, indexByte, size)
-}
-
-func (cmd *FDisk) findAvailableSpace(mbr *structures.MBR, size int) (int, int32, error) {
-	objects := make([]interface{}, len(mbr.MbrPartitions))
-	for i, partition := range mbr.MbrPartitions {
-		objects[i] = partition
+	if mbr.FreeNamePartition(cmd.Name) == false {
+		return fmt.Errorf("name already exists: %s", cmd.Name)
 	}
 
-	indexByte := manager.FirstFit(objects, int32(size), int32(153), mbr.MbrSize)
-	indexPart := mbr.FindFreePartition()
+	partition := &mbr.MbrPartition[indexPart]
+	partition.SetPartition(cmd.Type, cmd.Fit, indexByte, int32(sizeInBytes), cmd.Name)
 
-	if indexByte == -1 || indexPart == -1 {
-		return -1, -1, fmt.Errorf("no space available")
-	}
-
-	return indexPart, indexByte, nil
-}
-
-func (cmd *FDisk) createPartitionEntry(mbr *structures.MBR, indexPart int, indexByte int32, size int) error {
-	partition := &mbr.MbrPartitions[indexPart]
-
-	partition.PartType = cmd.Type[0]
-	partition.PartFit = cmd.Fit[0]
-	partition.PartStart = indexByte
-	partition.PartSize = int32(size)
-
-	if !mbr.FreeNamePartition(cmd.Name) {
-		return fmt.Errorf("partition name already exists")
-	}
-
-	copy(partition.PartName[:], cmd.Name)
-
-	if partition.PartType != 'L' {
-		if err := common.WriteToFile(cmd.Path, 0, int64(binary.Size(mbr)), mbr); err != nil {
-			return err
-		}
-	}
-
-	if err := cmd.handlePartitionType(partition, mbr); err != nil {
+	if err := mbr.WriteMBR(cmd.Path); err != nil {
 		return err
 	}
 
-	if err := common.ReadFromFile(cmd.Path, 0, mbr); err != nil {
+	return nil
+}
+
+func (cmd *FDisk) createExtendedPartition(mbr *structures.MBR, sizeInBytes int) error {
+	if mbr.ExtendPartitionExist() {
+		return fmt.Errorf("extended partition already exists")
+	}
+
+	indexPart, indexByte, err := cmd.findAvailableSpace(mbr, sizeInBytes)
+	if err != nil {
 		return err
 	}
-	return nil
-}
 
-func (cmd *FDisk) handlePartitionType(partition *structures.Partition, mbr *structures.MBR) error {
-	switch cmd.Type {
-	case "P":
-		return cmd.createPrimaryPartition(partition)
-	case "E":
-		return cmd.createExtendedPartition(partition)
-	case "L":
-		return cmd.createLogicalPartition(partition, mbr)
-	default:
-		return fmt.Errorf("unknown partition type")
+	if mbr.FreeNamePartition(cmd.Name) == false {
+		return fmt.Errorf("name already exists: %s", cmd.Name)
 	}
-}
 
-func (cmd *FDisk) createPrimaryPartition(partition *structures.Partition) error {
-	// Lógica para crear partición primaria
-	return nil
-}
+	partition := &mbr.MbrPartition[indexPart]
+	partition.SetPartition(cmd.Type, cmd.Fit, indexByte, int32(sizeInBytes), cmd.Name)
 
-func (cmd *FDisk) createExtendedPartition(partition *structures.Partition) error {
-	ebr := &structures.EBR{}
-	ebr.DefaultValue()
-	if err := common.WriteToFile(cmd.Path, int64(partition.PartStart), int64(partition.PartStart+partition.PartSize), ebr); err != nil {
+	if err := mbr.WriteMBR(cmd.Path); err != nil {
 		return err
-	}
-	return nil
-}
-
-func (cmd *FDisk) createLogicalPartition(partition *structures.Partition, mbr *structures.MBR) error {
-	extPartition := &structures.Partition{}
-
-	for i := range mbr.MbrPartitions {
-		if mbr.MbrPartitions[i].PartType == 'E' {
-			extPartition = &mbr.MbrPartitions[i]
-			partition.PartStart = extPartition.PartStart
-			break
-		}
 	}
 
 	ebr := &structures.EBR{}
+	ebr.DefaultValue()
 
-	if err := common.ReadFromFile(cmd.Path, int64(extPartition.PartStart), ebr); err != nil {
+	if err := ebr.WriteEBR(cmd.Path, int64(partition.PartStart), int64(partition.PartSize+partition.PartStart)); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (cmd *FDisk) createLogicalPartition(mbr *structures.MBR, sizeInBytes int) error {
+	if !mbr.ExtendPartitionExist() {
+		return fmt.Errorf("extended partition does not exist")
+	}
+
+	start := int32(0)
+	partition := mbr.GetExtendedPartition()
+	start = partition.PartStart
+
+	ebr := &structures.EBR{}
+	if err := ebr.ReadEBR(cmd.Path, int64(partition.PartStart)); err != nil {
 		return err
 	}
 
 	for ebr.PartNext != -1 {
-		partition.PartStart = ebr.PartNext
-		if err := common.ReadFromFile(cmd.Path, int64(ebr.PartNext), ebr); err != nil {
+		start = ebr.PartNext
+		if err := ebr.ReadEBR(cmd.Path, int64(ebr.PartNext)); err != nil {
 			return err
 		}
 	}
 
-	ebr.PartFit = partition.PartFit
-	ebr.PartStart = partition.PartStart + 30
-	ebr.PartSize = partition.PartSize
-	ebr.PartNext = ebr.PartSize + ebr.PartStart
-	copy(ebr.PartName[:], partition.PartName[:])
+	ebr.SetEBR(cmd.Fit, start+30, int32(sizeInBytes), start+30+int32(sizeInBytes), cmd.Name)
 
-	if err := common.WriteToFile(cmd.Path, int64(ebr.PartStart-30), int64(extPartition.PartStart+extPartition.PartSize), ebr); err != nil {
+	if err := ebr.WriteEBR(cmd.Path, int64(ebr.PartStart-30), int64(partition.PartStart+partition.PartSize)); err != nil {
 		return err
 	}
 
-	ebrDefault := &structures.EBR{}
-	ebrDefault.DefaultValue()
+	def := &structures.EBR{}
+	def.DefaultValue()
 
-	if err := common.WriteToFile(cmd.Path, int64(ebr.PartNext), int64(extPartition.PartStart+extPartition.PartSize), ebrDefault); err != nil {
+	if err := def.WriteEBR(cmd.Path, int64(ebr.PartNext), int64(partition.PartStart+partition.PartSize)); err != nil {
 		return err
 	}
 
-	if err := common.ReadFromFile(cmd.Path, int64(ebr.PartStart-30), ebr); err != nil {
-		return err
-	}
 	return nil
+}
+
+func (cmd *FDisk) findAvailableSpace(mbr *structures.MBR, sizeInBytes int) (int, int32, error) {
+	indexPart := mbr.FindFreePartition()
+	if indexPart == -1 {
+		return -1, -1, fmt.Errorf("no free partition available")
+	}
+
+	objects := structures.ConvertToObjects(mbr.MbrPartition[:])
+	indexByte := structures.FirstFit(objects, int32(sizeInBytes), int32(153), mbr.MbrSize)
+
+	if indexByte == -1 {
+		return -1, -1, fmt.Errorf("no space available for partition")
+	}
+	return indexPart, indexByte, nil
 }

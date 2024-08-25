@@ -1,7 +1,7 @@
 package commands
 
 import (
-	"backend/common"
+	common "backend/utils"
 	"fmt"
 	"os"
 	"regexp"
@@ -12,7 +12,7 @@ type RmDisk struct {
 	Path string
 }
 
-func ParseRmDisk(tokens []string) (string, error) {
+func ParserRmDisk(tokens []string) (string, error) {
 	cmd := &RmDisk{}
 
 	args := strings.Join(tokens, " ")

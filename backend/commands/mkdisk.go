@@ -1,8 +1,8 @@
 package commands
 
 import (
-	"backend/common"
 	"backend/structures"
+	"backend/utils"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -26,7 +26,7 @@ func ParserMkDisk(tokens []string) (string, error) {
 	matches := re.FindAllString(args, -1)
 
 	for _, match := range matches {
-		key, value, err := common.ParseToken(match)
+		key, value, err := utils.ParseToken(match)
 		if err != nil {
 			return "", err
 		}
@@ -85,7 +85,7 @@ func ParserMkDisk(tokens []string) (string, error) {
 }
 
 func (cmd *MkDisk) commandMkDisk() error {
-	sizeInBytes, err := common.ConvertToBytes(cmd.Size, cmd.Unit)
+	sizeInBytes, err := utils.ConvertToBytes(cmd.Size, cmd.Unit)
 	if err != nil {
 		return err
 	}
@@ -100,7 +100,12 @@ func (cmd *MkDisk) commandMkDisk() error {
 		return err
 	}
 
+	if err := mbr.WriteMBR(cmd.Path); err != nil {
+		return err
+	}
+
 	mbr.Print()
+
 	return nil
 }
 
@@ -121,14 +126,6 @@ func (cmd *MkDisk) createDisk(sizeInBytes int) error {
 		}
 	}(file)
 
-	if err := writeToFile(file, sizeInBytes); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func writeToFile(file *os.File, sizeInBytes int) error {
 	buffer := make([]byte, 1024*1024)
 
 	for sizeInBytes > 0 {
