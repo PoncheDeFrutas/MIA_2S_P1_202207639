@@ -6,25 +6,21 @@ import (
 	"fmt"
 	"math/rand"
 	"strings"
+	"time"
 )
 
 type MBR struct {
 	MbrSize          int32
-	MbrCreationDate  [4]byte
+	MbrCreationDate  float32
 	MbrDiskSignature int32
 	MbrDiskFit       byte
 	MbrPartition     [4]Partition
 	// Total size of the MBR is 153 bytes
 }
 
-func (m *MBR) CreateMBR(size int, fit string, path string) error {
-	creationDate, err := common.GetCreationDate(path)
-	if err != nil {
-		return err
-	}
-
+func (m *MBR) CreateMBR(size int, fit string) error {
 	m.MbrSize = int32(size)
-	copy(m.MbrCreationDate[:], creationDate[:])
+	m.MbrCreationDate = float32(time.Now().Unix())
 	m.MbrDiskSignature = rand.Int31()
 	m.MbrDiskFit = fit[0]
 
@@ -78,7 +74,7 @@ func (m *MBR) GetPartitionByName(name string) (*Partition, int) {
 
 func (m *MBR) GetPartitionByID(id string) (*Partition, error) {
 	for i, partition := range m.MbrPartition {
-		if strings.TrimRight(string(partition.PartName[:]), "\x00") == id {
+		if strings.TrimRight(string(partition.PartId[:]), "\x00") == id {
 			return &m.MbrPartition[i], nil
 		}
 	}
@@ -106,7 +102,7 @@ func (m *MBR) GetExtendedPartition() *Partition {
 func (m *MBR) Print() {
 	fmt.Println("/*********************** MBR ***********************/")
 	fmt.Printf("Size: %d\n", m.MbrSize)
-	fmt.Printf("Creation Date: %s\n", strings.TrimSpace(common.ReadDate(m.MbrCreationDate)))
+	fmt.Printf("Creation Date: %s\n", time.Unix(int64(m.MbrCreationDate), 0))
 	fmt.Printf("Disk Signature: %d\n", m.MbrDiskSignature)
 	fmt.Printf("Disk Fit: %c\n", m.MbrDiskFit)
 	fmt.Println("/******************** Partitions ********************/")

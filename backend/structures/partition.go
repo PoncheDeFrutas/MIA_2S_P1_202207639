@@ -1,6 +1,10 @@
 package structures
 
-import "fmt"
+import (
+	"encoding/binary"
+	"fmt"
+	"math"
+)
 
 type Partition struct {
 	PartStatus      byte
@@ -42,6 +46,21 @@ func (p *Partition) MountPartition(correlative int, id string) error {
 	p.PartCorrelative = int32(correlative) + 1
 	copy(p.PartId[:], id)
 	return nil
+}
+
+func (p *Partition) UnmountPartition() {
+	p.PartCorrelative = -1
+	copy(p.PartId[:], "$$$$")
+}
+
+func (p *Partition) IsMounted() bool {
+	return p.PartCorrelative != -1
+}
+
+func (p *Partition) CalculateN() int32 {
+	numerator := int(p.PartSize) - binary.Size(SuperBlock{})
+	denominator := 4 + binary.Size(Inode{}) + 3*binary.Size(FileBlock{})
+	return int32(math.Floor(float64(numerator) / float64(denominator)))
 }
 
 func (p *Partition) Print() {

@@ -96,7 +96,7 @@ func (cmd *MkDisk) commandMkDisk() error {
 
 	mbr := &structures.MBR{}
 
-	if err := mbr.CreateMBR(sizeInBytes, cmd.Fit, cmd.Path); err != nil {
+	if err := mbr.CreateMBR(sizeInBytes, cmd.Fit); err != nil {
 		return err
 	}
 
