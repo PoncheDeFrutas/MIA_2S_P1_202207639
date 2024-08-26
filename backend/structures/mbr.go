@@ -1,8 +1,9 @@
 package structures
 
 import (
-	"backend/common"
+	common "backend/utils"
 	"encoding/binary"
+	"fmt"
 	"math/rand"
 	"strings"
 )
@@ -12,8 +13,8 @@ type MBR struct {
 	MbrCreationDate  [4]byte
 	MbrDiskSignature int32
 	MbrDiskFit       byte
-	MbrPartitions    [4]Partition
-	// Total size: 153 bytes
+	MbrPartition     [4]Partition
+	// Total size of the MBR is 153 bytes
 }
 
 func (m *MBR) CreateMBR(size int, fit string, path string) error {
@@ -27,43 +28,18 @@ func (m *MBR) CreateMBR(size int, fit string, path string) error {
 	m.MbrDiskSignature = rand.Int31()
 	m.MbrDiskFit = fit[0]
 
-	for i := range m.MbrPartitions {
-		m.MbrPartitions[i].DefaultValue()
-		m.MbrPartitions[i].PartCorrelative = int32(i + 1)
-	}
-
-	if err := common.WriteToFile(path, int64(0), int64(binary.Size(m)), m); err != nil {
-		return err
+	for i := range m.MbrPartition {
+		m.MbrPartition[i].DefaultValue()
 	}
 
 	return nil
 }
 
-func (m *MBR) FindFreePartition() int {
-	for i := range m.MbrPartitions {
-		if m.MbrPartitions[i].PartStart == -1 {
-			return i
-		}
+func (m *MBR) WriteMBR(path string) error {
+	if err := common.WriteToFile(path, int64(0), int64(binary.Size(m)), m); err != nil {
+		return err
 	}
-	return -1
-}
-
-func (m *MBR) FreeNamePartition(name string) bool {
-	for i := range m.MbrPartitions {
-		if strings.TrimRight(string(m.MbrPartitions[i].PartName[:]), "\x00") == name {
-			return false
-		}
-	}
-	return true
-}
-
-func (m *MBR) ExtendPartitionExist() bool {
-	for i := range m.MbrPartitions {
-		if m.MbrPartitions[i].PartType == 'E' {
-			return true
-		}
-	}
-	return false
+	return nil
 }
 
 func (m *MBR) ReadMBR(path string) error {
@@ -73,15 +49,71 @@ func (m *MBR) ReadMBR(path string) error {
 	return nil
 }
 
-func (m *MBR) Print() {
-	println("MBR")
-	println("MbrSize: ", m.MbrSize)
-	println("MbrCreationDate: ", strings.TrimSpace(common.ReadDate(m.MbrCreationDate)))
-	println("MbrDiskSignature: ", m.MbrDiskSignature)
-	println("MbrDiskFit: ", rune(m.MbrDiskFit))
-	println("Partitions")
-	for i := range m.MbrPartitions {
-		println("------------------------------------------------")
-		m.MbrPartitions[i].Print()
+func (m *MBR) FindFreePartition() int {
+	for i, partition := range m.MbrPartition {
+		if partition.PartStart == -1 {
+			return i
+		}
 	}
+	return -1
+}
+
+func (m *MBR) FreeNamePartition(name string) bool {
+	for _, partition := range m.MbrPartition {
+		if strings.TrimRight(string(partition.PartName[:]), "\x00") == name {
+			return false
+		}
+	}
+	return true
+}
+
+func (m *MBR) GetPartitionByName(name string) (*Partition, int) {
+	for i, partition := range m.MbrPartition {
+		if strings.TrimRight(string(partition.PartName[:]), "\x00") == name {
+			return &m.MbrPartition[i], i
+		}
+	}
+	return nil, -1
+}
+
+func (m *MBR) GetPartitionByID(id string) (*Partition, error) {
+	for i, partition := range m.MbrPartition {
+		if strings.TrimRight(string(partition.PartName[:]), "\x00") == id {
+			return &m.MbrPartition[i], nil
+		}
+	}
+	return nil, fmt.Errorf("partition not found")
+}
+
+func (m *MBR) ExtendPartitionExist() bool {
+	for _, partition := range m.MbrPartition {
+		if partition.PartType == 'E' {
+			return true
+		}
+	}
+	return false
+}
+
+func (m *MBR) GetExtendedPartition() *Partition {
+	for i, partition := range m.MbrPartition {
+		if partition.PartType == 'E' {
+			return &m.MbrPartition[i]
+		}
+	}
+	return nil
+}
+
+func (m *MBR) Print() {
+	fmt.Println("/*********************** MBR ***********************/")
+	fmt.Printf("Size: %d\n", m.MbrSize)
+	fmt.Printf("Creation Date: %s\n", strings.TrimSpace(common.ReadDate(m.MbrCreationDate)))
+	fmt.Printf("Disk Signature: %d\n", m.MbrDiskSignature)
+	fmt.Printf("Disk Fit: %c\n", m.MbrDiskFit)
+	fmt.Println("/******************** Partitions ********************/")
+	for i, partition := range m.MbrPartition {
+		fmt.Println("--------------------------------------------------")
+		fmt.Printf("Partition %d\n", i)
+		partition.Print()
+	}
+	fmt.Println("--------------------------------------------------")
 }

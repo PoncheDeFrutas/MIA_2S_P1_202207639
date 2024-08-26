@@ -1,6 +1,0 @@
-mkdisk -size=10 -unit=M -path="/home/ponche/Documentos/Archivos/MIA_2S_P1_202207639/backend/disks/disk.mia"
-
-fdisk -size=10 -unit=B -path="/home/ponche/Documentos/Archivos/MIA_2S_P1_202207639/backend/disks/disk.mia" -name=Particion1
-
-
-fdisk -size=10 -unit=B -path="/home/ponche/Documentos/Archivos/MIA_2S_P1_202207639/backend/disks/disk.mia" -name=Particion2 -type=E

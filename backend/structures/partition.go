@@ -3,26 +3,45 @@ package structures
 import "fmt"
 
 type Partition struct {
-	PartStatus      byte     //Indicates if the partition is active or not
-	PartType        byte     //Indicates the type of partition
-	PartFit         byte     //Indicates the way the partition is going to be formatted
-	PartStart       int32    //Indicates the start of the partition in bytes
-	PartSize        int32    //Indicates the size of the partition in bytes
-	PartName        [16]byte //Name of the partition
-	PartCorrelative int32    //Correlative of the partition
-	PartId          int32    //Id of the partition
-	// Total size: 35 bytes
+	PartStatus      byte
+	PartType        byte
+	PartFit         byte
+	PartStart       int32
+	PartSize        int32
+	PartName        [16]byte
+	PartCorrelative int32
+	PartId          [4]byte
+	// Total size of the Partition is 35 bytes
 }
 
 func (p *Partition) DefaultValue() {
-	p.PartStatus = '0'
+	p.PartStatus = '9'
 	p.PartType = 'P'
 	p.PartFit = 'W'
 	p.PartStart = -1
 	p.PartSize = -1
 	copy(p.PartName[:], "$")
 	p.PartCorrelative = -1
-	p.PartId = -1
+	copy(p.PartId[:], "$$$$")
+}
+
+func (p *Partition) SetPartition(partType string, fit string, start int32, size int32, name string) {
+	p.PartStatus = '0'
+	p.PartType = partType[0]
+	p.PartFit = fit[0]
+	p.PartStart = start
+	p.PartSize = size
+	copy(p.PartName[:], name)
+}
+
+func (p *Partition) IsEmpty() bool {
+	return p.PartStart == -1 && p.PartSize == -1
+}
+
+func (p *Partition) MountPartition(correlative int, id string) error {
+	p.PartCorrelative = int32(correlative) + 1
+	copy(p.PartId[:], id)
+	return nil
 }
 
 func (p *Partition) Print() {
@@ -33,5 +52,5 @@ func (p *Partition) Print() {
 	fmt.Println("PartSize: ", p.PartSize)
 	fmt.Println("PartName: ", string(p.PartName[:]))
 	fmt.Println("PartCorrelative: ", p.PartCorrelative)
-	fmt.Println("PartId: ", p.PartId)
+	fmt.Println("PartId: ", string(p.PartId[:]))
 }
