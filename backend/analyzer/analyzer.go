@@ -40,6 +40,8 @@ func Analyzer(input string) string {
 			result, err = commands.ParserFDisk(tokens[1:])
 		case "mount":
 			result, err = commands.ParserMount(tokens[1:])
+		case "mkfs":
+			result, err = commands.ParserMkFs(tokens[1:])
 		default:
 			err = fmt.Errorf("command not found: %s", tokens[0])
 		}
