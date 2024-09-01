@@ -1,6 +1,10 @@
 package structures
 
-import "backend/utils"
+import (
+	"backend/utils"
+	"fmt"
+	"strings"
+)
 
 type FolderBlock struct {
 	BContent [4]FolderContent
@@ -38,9 +42,6 @@ func (f *FolderBlock) ReadFolderBlock(path string, offset int64) error {
 
 func (f *FolderBlock) Print() {
 	for i, content := range f.BContent {
-		if content.BInode == -1 {
-			break
-		}
 		content.Print(i)
 	}
 }
@@ -50,4 +51,29 @@ func (f *FolderContent) Print(i int) {
 	println("BName", string(f.BName[:]))
 	println("BInode", f.BInode)
 	println()
+}
+
+func (f *FolderBlock) GetStringBuilder(nodeName string) string {
+	var sb strings.Builder
+
+	sb.WriteString(fmt.Sprintf("    %s [label=<\n", nodeName))
+	sb.WriteString(fmt.Sprintf("    <TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\">\n"))
+
+	sb.WriteString(fmt.Sprintf("\t<TR><TD COLSPAN=\"2\" BGCOLOR=\"%s\"><B>%s</B></TD></TR>\n", "#333333", nodeName))
+	sb.WriteString(fmt.Sprintf("\t<TR><TD WIDTH=\"150\" BGCOLOR=\"%s\">BName</TD><TD WIDTH=\"150\" BGCOLOR=\"%s\">BINode</TD></TR>\n", "#DDDDDD", "#DDDDDD"))
+	for _, Content := range f.BContent {
+		sb.WriteString(Content.GetStringBuilder())
+	}
+
+	sb.WriteString("    </TABLE>>]\n")
+
+	return sb.String()
+}
+
+func (f *FolderContent) GetStringBuilder() string {
+	var sb strings.Builder
+
+	sb.WriteString(fmt.Sprintf("\t<TR><TD WIDTH=\"150\" BGCOLOR=\"%s\">%s</TD><TD WIDTH=\"150\" BGCOLOR=\"%s\">%d</TD></TR>\n", "#DDDDDD", strings.TrimRight(string(f.BName[:]), "\x00"), "#DDDDDD", f.BInode))
+
+	return sb.String()
 }
