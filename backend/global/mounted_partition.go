@@ -8,7 +8,7 @@ import (
 const Carnet string = "39"
 
 var (
-	MountedPartitions map[string]string = make(map[string]string)
+	MountedPartitions = make(map[string]string) // id -> path
 )
 
 func GetMountedPartition(id string) (*structures.Partition, string, error) {

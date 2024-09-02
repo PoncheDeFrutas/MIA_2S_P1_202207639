@@ -4,6 +4,7 @@ import (
 	"backend/utils"
 	"encoding/binary"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -73,6 +74,18 @@ func (sb *SuperBlock) ReadSuperBlock(path string, offset int64) error {
 }
 
 func (sb *SuperBlock) CreateUserFile(path string) error {
+	if err := sb.createRootInodeAndBlock(path); err != nil {
+		return err
+	}
+
+	if err := sb.createUsersFile(path); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (sb *SuperBlock) createRootInodeAndBlock(path string) error {
 	rootInode := &Inode{}
 	rootInode.DefaultValue(sb.SBlocksCount)
 
@@ -84,24 +97,16 @@ func (sb *SuperBlock) CreateUserFile(path string) error {
 		return err
 	}
 
-	sb.SInodesCount++
-	sb.SFreeInodeCount--
-	sb.SFirstIno += sb.SInodeSize
-
 	rootBlock := &FolderBlock{}
 	rootBlock.DefaultValue()
-
-	if err := sb.UpdateBitmapBlock(path); err != nil {
-		return err
-	}
 
 	if err := rootBlock.WriteFolderBlock(path, int64(sb.SFirstBlo), int64(sb.SFirstBlo+sb.SBlockSize)); err != nil {
 		return err
 	}
 
-	sb.SBlocksCount++
-	sb.SFreeBlockCount--
-	sb.SFirstBlo += sb.SBlockSize
+	if err := sb.UpdateBitmapBlock(path); err != nil {
+		return err
+	}
 
 	fmt.Println("rootInode")
 	rootInode.Print()
@@ -109,9 +114,13 @@ func (sb *SuperBlock) CreateUserFile(path string) error {
 	fmt.Println("rootBlock")
 	rootBlock.Print()
 
-	// Create /users.txt
+	return nil
+}
+
+func (sb *SuperBlock) createUsersFile(path string) error {
 	usersText := "1,G,root\n1,U,root,root,123\n"
 
+	rootInode := &Inode{}
 	if err := rootInode.ReadInode(path, int64(sb.SInodeStart+0)); err != nil {
 		return err
 	}
@@ -122,6 +131,7 @@ func (sb *SuperBlock) CreateUserFile(path string) error {
 		return err
 	}
 
+	rootBlock := &FolderBlock{}
 	if err := rootBlock.ReadFolderBlock(path, int64(sb.SBlockStart+0)); err != nil {
 		return err
 	}
@@ -135,18 +145,15 @@ func (sb *SuperBlock) CreateUserFile(path string) error {
 	usersInode := &Inode{}
 	usersInode.DefaultValue(sb.SBlocksCount)
 	usersInode.ISize = int32(len(usersText))
-
-	if err := sb.UpdateBitmapInode(path); err != nil {
-		return err
-	}
+	usersInode.IType = '1'
 
 	if err := usersInode.WriteInode(path, int64(sb.SFirstIno), int64(sb.SFirstIno+sb.SInodeSize)); err != nil {
 		return err
 	}
 
-	sb.SInodesCount++
-	sb.SFreeInodeCount--
-	sb.SFirstIno += sb.SInodeSize
+	if err := sb.UpdateBitmapInode(path); err != nil {
+		return err
+	}
 
 	usersBlock := &FileBlock{}
 	copy(usersBlock.BContent[:], usersText)
@@ -180,4 +187,32 @@ func (sb *SuperBlock) Print() {
 	fmt.Printf("SBMInodeStart: %d\n", sb.SBMInodeStart)
 	fmt.Printf("SInodeStart: %d\n", sb.SInodeStart)
 	fmt.Printf("SBlockStart: %d\n", sb.SBlockStart)
+}
+
+func (sb *SuperBlock) GetStringBuilder() string {
+	var stringB strings.Builder
+
+	// Main title row
+	stringB.WriteString(fmt.Sprintf("\t<TR><TD COLSPAN=\"2\" BGCOLOR=\"%s\"><B>SuperBlock</B></TD></TR>\n", "#333333"))
+
+	// SuperBlock rows
+	stringB.WriteString(fmt.Sprintf("<TR><TD WIDTH=\"150\" BGCOLOR=\"%s\">File System Type</TD><TD WIDTH=\"250\" BGCOLOR=\"%s\">%d</TD></TR>\n", "#DDDDDD", "#DDDDDD", sb.SFilesystemType))
+	stringB.WriteString(fmt.Sprintf("<TR><TD WIDTH=\"150\" BGCOLOR=\"%s\">Inodes Count</TD><TD WIDTH=\"250\" BGCOLOR=\"%s\">%d</TD></TR>\n", "#FFFFFF", "#FFFFFF", sb.SInodesCount))
+	stringB.WriteString(fmt.Sprintf("<TR><TD WIDTH=\"150\" BGCOLOR=\"%s\">Blocks Count</TD><TD WIDTH=\"250\" BGCOLOR=\"%s\">%d</TD></TR>\n", "#DDDDDD", "#DDDDDD", sb.SBlocksCount))
+	stringB.WriteString(fmt.Sprintf("<TR><TD WIDTH=\"150\" BGCOLOR=\"%s\">Free Inode Count</TD><TD WIDTH=\"250\" BGCOLOR=\"%s\">%d</TD></TR>\n", "#FFFFFF", "#FFFFFF", sb.SFreeInodeCount))
+	stringB.WriteString(fmt.Sprintf("<TR><TD WIDTH=\"150\" BGCOLOR=\"%s\">Free Block Count</TD><TD WIDTH=\"250\" BGCOLOR=\"%s\">%d</TD></TR>\n", "#DDDDDD", "#DDDDDD", sb.SFreeBlockCount))
+	stringB.WriteString(fmt.Sprintf("<TR><TD WIDTH=\"150\" BGCOLOR=\"%s\">MTime</TD><TD WIDTH=\"250\" BGCOLOR=\"%s\">%s</TD></TR>\n", "#FFFFFF", "#FFFFFF", time.Unix(int64(sb.SMTime), 0).Format("02-Jan-2006 03:04 PM")))
+	stringB.WriteString(fmt.Sprintf("<TR><TD WIDTH=\"150\" BGCOLOR=\"%s\">UMTime</TD><TD WIDTH=\"250\" BGCOLOR=\"%s\">%s</TD></TR>\n", "#DDDDDD", "#DDDDDD", time.Unix(int64(sb.SUmTime), 0).Format("02-Jan-2006 03:04 PM")))
+	stringB.WriteString(fmt.Sprintf("<TR><TD WIDTH=\"150\" BGCOLOR=\"%s\">MntCount</TD><TD WIDTH=\"250\" BGCOLOR=\"%s\">%d</TD></TR>\n", "#FFFFFF", "#FFFFFF", sb.SMntCount))
+	stringB.WriteString(fmt.Sprintf("<TR><TD WIDTH=\"150\" BGCOLOR=\"%s\">Magic</TD><TD WIDTH=\"250\" BGCOLOR=\"%s\">%d</TD></TR>\n", "#DDDDDD", "#DDDDDD", sb.SMagic))
+	stringB.WriteString(fmt.Sprintf("<TR><TD WIDTH=\"150\" BGCOLOR=\"%s\">Inode Size</TD><TD WIDTH=\"250\" BGCOLOR=\"%s\">%d</TD></TR>\n", "#FFFFFF", "#FFFFFF", sb.SInodeSize))
+	stringB.WriteString(fmt.Sprintf("<TR><TD WIDTH=\"150\" BGCOLOR=\"%s\">Block Size</TD><TD WIDTH=\"250\" BGCOLOR=\"%s\">%d</TD></TR>\n", "#DDDDDD", "#DDDDDD", sb.SBlockSize))
+	stringB.WriteString(fmt.Sprintf("<TR><TD WIDTH=\"150\" BGCOLOR=\"%s\">First Ino</TD><TD WIDTH=\"250\" BGCOLOR=\"%s\">%d</TD></TR>\n", "#FFFFFF", "#FFFFFF", sb.SFirstIno))
+	stringB.WriteString(fmt.Sprintf("<TR><TD WIDTH=\"150\" BGCOLOR=\"%s\">First Blo</TD><TD WIDTH=\"250\" BGCOLOR=\"%s\">%d</TD></TR>\n", "#DDDDDD", "#DDDDDD", sb.SFirstBlo))
+	stringB.WriteString(fmt.Sprintf("<TR><TD WIDTH=\"150\" BGCOLOR=\"%s\">BMBlock Start</TD><TD WIDTH=\"250\" BGCOLOR=\"%s\">%d</TD></TR>\n", "#FFFFFF", "#FFFFFF", sb.SBMBlockStart))
+	stringB.WriteString(fmt.Sprintf("<TR><TD WIDTH=\"150\" BGCOLOR=\"%s\">BMInode Start</TD><TD WIDTH=\"250\" BGCOLOR=\"%s\">%d</TD></TR>\n", "#DDDDDD", "#DDDDDD", sb.SBMInodeStart))
+	stringB.WriteString(fmt.Sprintf("<TR><TD WIDTH=\"150\" BGCOLOR=\"%s\">Inode Start</TD><TD WIDTH=\"250\" BGCOLOR=\"%s\">%d</TD></TR>\n", "#FFFFFF", "#FFFFFF", sb.SInodeStart))
+	stringB.WriteString(fmt.Sprintf("<TR><TD WIDTH=\"150\" BGCOLOR=\"%s\">Block Start</TD><TD WIDTH=\"250\" BGCOLOR=\"%s\">%d</TD></TR>\n", "#DDDDDD", "#DDDDDD", sb.SBlockStart))
+
+	return stringB.String()
 }

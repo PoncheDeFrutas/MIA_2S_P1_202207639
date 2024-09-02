@@ -113,3 +113,17 @@ func (m *MBR) Print() {
 	}
 	fmt.Println("--------------------------------------------------")
 }
+
+func (m *MBR) GetStringBuilder() string {
+	var sb strings.Builder
+	// Main title row
+	sb.WriteString(fmt.Sprintf("\t<TR><TD COLSPAN=\"2\" BGCOLOR=\"%s\"><B>MBR</B></TD></TR>\n", "#333333"))
+
+	// MBR data rows with uniform cell colors
+	sb.WriteString(fmt.Sprintf("<TR><TD WIDTH=\"150\" BGCOLOR=\"%s\">MBR Tamaño</TD><TD WIDTH=\"200\" BGCOLOR=\"%s\">%d</TD></TR>\n", "#DDDDDD", "#DDDDDD", m.MbrSize))
+	sb.WriteString(fmt.Sprintf("<TR><TD WIDTH=\"150\" BGCOLOR=\"%s\">MBR Fecha Creación</TD><TD WIDTH=\"200\" BGCOLOR=\"%s\">%s</TD></TR>\n", "#DDDDDD", "#DDDDDD", time.Unix(int64(m.MbrCreationDate), 0).Format("02-Jan-2006 03:04 PM")))
+	sb.WriteString(fmt.Sprintf("<TR><TD WIDTH=\"150\" BGCOLOR=\"%s\">MBR Disk Signature</TD><TD WIDTH=\"200\" BGCOLOR=\"%s\">%d</TD></TR>\n", "#DDDDDD", "#DDDDDD", m.MbrDiskSignature))
+	sb.WriteString(fmt.Sprintf("<TR><TD WIDTH=\"150\" BGCOLOR=\"%s\">MBR Disk Fit</TD><TD WIDTH=\"200\" BGCOLOR=\"%s\">%c</TD></TR>\n", "#DDDDDD", "#DDDDDD", m.MbrDiskFit))
+
+	return sb.String()
+}

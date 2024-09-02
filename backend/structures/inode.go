@@ -3,6 +3,7 @@ package structures
 import (
 	"backend/utils"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -59,4 +60,47 @@ func (i *Inode) Print() {
 	fmt.Printf("IBlock: %v\n", i.IBlock)
 	fmt.Printf("IType: %c\n", i.IType)
 	fmt.Printf("IPerm: %s\n", string(i.IPerm[:]))
+}
+
+func (i *Inode) GetStringBuilder(nodeName string) string {
+	var sb strings.Builder
+
+	Perm := strings.TrimRight(string(i.IPerm[:]), "\x00")
+
+	sb.WriteString(fmt.Sprintf("    %s [label=<\n", nodeName))
+	sb.WriteString(fmt.Sprintf("    <TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\">\n"))
+
+	sb.WriteString(fmt.Sprintf("\t<TR><TD COLSPAN=\"2\" BGCOLOR=\"%s\"><B>%s</B></TD></TR>\n", "#333333", nodeName))
+
+	sb.WriteString(fmt.Sprintf("<TR><TD WIDTH=\"150\" BGCOLOR=\"%s\">IuId</TD><TD WIDTH=\"250\" BGCOLOR=\"%s\">%d</TD></TR>\n", "#DDDDDD", "#DDDDDD", i.IuId))
+	sb.WriteString(fmt.Sprintf("<TR><TD WIDTH=\"150\" BGCOLOR=\"%s\">IGid</TD><TD WIDTH=\"250\" BGCOLOR=\"%s\">%d</TD></TR>\n", "#FFFFFF", "#FFFFFF", i.IGid))
+	sb.WriteString(fmt.Sprintf("<TR><TD WIDTH=\"150\" BGCOLOR=\"%s\">ISize</TD><TD WIDTH=\"250\" BGCOLOR=\"%s\">%d</TD></TR>\n", "#DDDDDD", "#DDDDDD", i.ISize))
+	sb.WriteString(fmt.Sprintf("<TR><TD WIDTH=\"150\" BGCOLOR=\"%s\">IAtime</TD><TD WIDTH=\"250\" BGCOLOR=\"%s\">%s</TD></TR>\n", "#FFFFFF", "#FFFFFF", time.Unix(int64(i.IAtime), 0).Format("02-Jan-2006 03:04 PM")))
+	sb.WriteString(fmt.Sprintf("<TR><TD WIDTH=\"150\" BGCOLOR=\"%s\">ICTime</TD><TD WIDTH=\"250\" BGCOLOR=\"%s\">%s</TD></TR>\n", "#DDDDDD", "#DDDDDD", time.Unix(int64(i.ICTime), 0).Format("02-Jan-2006 03:04 PM")))
+	sb.WriteString(fmt.Sprintf("<TR><TD WIDTH=\"150\" BGCOLOR=\"%s\">IMTime</TD><TD WIDTH=\"250\" BGCOLOR=\"%s\">%s</TD></TR>\n", "#FFFFFF", "#FFFFFF", time.Unix(int64(i.IMTime), 0).Format("02-Jan-2006 03:04 PM")))
+	sb.WriteString(fmt.Sprintf("<TR><TD WIDTH=\"150\" BGCOLOR=\"%s\">IType</TD><TD WIDTH=\"250\" BGCOLOR=\"%s\">%c</TD></TR>\n", "#DDDDDD", "#DDDDDD", i.IType))
+	sb.WriteString(fmt.Sprintf("<TR><TD WIDTH=\"150\" BGCOLOR=\"%s\">IPerm</TD><TD WIDTH=\"250\" BGCOLOR=\"%s\">%s</TD></TR>\n", "#FFFFFF", "#FFFFFF", Perm))
+
+	sb.WriteString(fmt.Sprintf("\t<TR><TD COLSPAN=\"2\" BGCOLOR=\"%s\"><B>Direct Blocks</B></TD></TR>\n", "#333333"))
+	for j := 0; j < 12; j++ {
+		bgColor := "#DDDDDD"
+		if j%2 == 0 {
+			bgColor = "#FFFFFF"
+		}
+		sb.WriteString(fmt.Sprintf("<TR><TD WIDTH=\"150\" BGCOLOR=\"%s\">IBlock %d</TD><TD WIDTH=\"250\" BGCOLOR=\"%s\">%d</TD></TR>\n", bgColor, j, bgColor, i.IBlock[j]))
+	}
+
+	sb.WriteString(fmt.Sprintf("\t<TR><TD COLSPAN=\"2\" BGCOLOR=\"%s\"><B>Indirect Blocks</B></TD></TR>\n", "#333333"))
+
+	for j := 12; j < 15; j++ {
+		bgColor := "#DDDDDD"
+		if j%2 == 0 {
+			bgColor = "#FFFFFF"
+		}
+		sb.WriteString(fmt.Sprintf("<TR><TD WIDTH=\"150\" BGCOLOR=\"%s\">IBlock %d</TD><TD WIDTH=\"250\" BGCOLOR=\"%s\">%d</TD></TR>\n", bgColor, j, bgColor, i.IBlock[j]))
+	}
+
+	sb.WriteString("    </TABLE>>];\n")
+
+	return sb.String()
 }

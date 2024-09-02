@@ -95,7 +95,6 @@ func (cmd *Mount) commandMount() error {
 		return err
 	}
 
-	mbr.Print()
 	return nil
 }
 

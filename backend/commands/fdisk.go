@@ -107,9 +107,6 @@ func ParserFDisk(tokens []string) (string, error) {
 	if err := mbr.ReadMBR(cmd.Path); err != nil {
 		return "", err
 	}
-
-	mbr.Print()
-
 	return "", nil
 }
 
