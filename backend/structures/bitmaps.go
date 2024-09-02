@@ -68,6 +68,10 @@ func (sb *SuperBlock) UpdateBitmapInode(path string) error {
 		return err
 	}
 
+	sb.SInodesCount++
+	sb.SFreeInodeCount--
+	sb.SFirstIno += sb.SInodeSize
+
 	return nil
 }
 
@@ -91,6 +95,10 @@ func (sb *SuperBlock) UpdateBitmapBlock(path string) error {
 	if _, err := file.Write([]byte{'X'}); err != nil {
 		return err
 	}
+
+	sb.SBlocksCount++
+	sb.SFreeBlockCount--
+	sb.SFirstBlo += sb.SBlockSize
 
 	return nil
 }

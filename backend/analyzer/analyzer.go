@@ -42,6 +42,24 @@ func Analyzer(input string) string {
 			result, err = commands.ParserMount(tokens[1:])
 		case "mkfs":
 			result, err = commands.ParserMkFs(tokens[1:])
+		case "rep":
+			result, err = commands.ParserREP(tokens[1:])
+		case "login":
+			result, err = commands.ParserLogin(tokens[1:])
+		case "logout":
+			result, err = commands.ParserLogout(tokens[1:])
+		case "mkgrp":
+			result, err = commands.ParserMkGRP(tokens[1:])
+		case "rmgrp":
+			result, err = commands.ParserRmGRP(tokens[1:])
+		case "mkusr":
+			result, err = commands.ParserMkUSR(tokens[1:])
+		case "rmusr":
+			result, err = commands.ParserRmUSR(tokens[1:])
+		case "chgrp":
+			result, err = commands.ParserChGRP(tokens[1:])
+		case "mkdir":
+			result, err = commands.ParserMkDIR(tokens[1:])
 		default:
 			err = fmt.Errorf("command not found: %s", tokens[0])
 		}

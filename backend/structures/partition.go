@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
+	"strings"
 )
 
 type Partition struct {
@@ -72,4 +73,23 @@ func (p *Partition) Print() {
 	fmt.Println("PartName: ", string(p.PartName[:]))
 	fmt.Println("PartCorrelative: ", p.PartCorrelative)
 	fmt.Println("PartId: ", string(p.PartId[:]))
+}
+
+func (p *Partition) GetStringBuilder(i int) string {
+	var sb strings.Builder
+
+	partName := strings.TrimRight(string(p.PartName[:]), "\x00")
+	id := strings.TrimRight(string(p.PartId[:]), "\x00")
+
+	sb.WriteString(fmt.Sprintf("<TR><TD COLSPAN=\"2\" BGCOLOR=\"%s\"><B>Partición %d</B></TD></TR>\n", "#AAAAAA", i+1))
+	sb.WriteString(fmt.Sprintf("<TR><TD WIDTH=\"150\" BGCOLOR=\"%s\">Status</TD><TD WIDTH=\"200\" BGCOLOR=\"%s\">%c</TD></TR>\n", "#DDDDDD", "#DDDDDD", p.PartStatus))
+	sb.WriteString(fmt.Sprintf("<TR><TD WIDTH=\"150\" BGCOLOR=\"%s\">Type</TD><TD WIDTH=\"200\" BGCOLOR=\"%s\">%c</TD></TR>\n", "#FFFFFF", "#FFFFFF", p.PartType))
+	sb.WriteString(fmt.Sprintf("<TR><TD WIDTH=\"150\" BGCOLOR=\"%s\">Fit</TD><TD WIDTH=\"200\" BGCOLOR=\"%s\">%c</TD></TR>\n", "#DDDDDD", "#DDDDDD", p.PartFit))
+	sb.WriteString(fmt.Sprintf("<TR><TD WIDTH=\"150\" BGCOLOR=\"%s\">Start</TD><TD WIDTH=\"200\" BGCOLOR=\"%s\">%d</TD></TR>\n", "#FFFFFF", "#FFFFFF", p.PartStart))
+	sb.WriteString(fmt.Sprintf("<TR><TD WIDTH=\"150\" BGCOLOR=\"%s\">Size</TD><TD WIDTH=\"200\" BGCOLOR=\"%s\">%d</TD></TR>\n", "#DDDDDD", "#DDDDDD", p.PartSize))
+	sb.WriteString(fmt.Sprintf("<TR><TD WIDTH=\"150\" BGCOLOR=\"%s\">Name</TD><TD WIDTH=\"200\" BGCOLOR=\"%s\">%s</TD></TR>\n", "#FFFFFF", "#FFFFFF", partName))
+	sb.WriteString(fmt.Sprintf("<TR><TD WIDTH=\"150\" BGCOLOR=\"%s\">ID</TD><TD WIDTH=\"200\" BGCOLOR=\"%s\">%s</TD></TR>\n", "#DDDDDD", "#DDDDDD", id))
+	sb.WriteString(fmt.Sprintf("<TR><TD WIDTH=\"150\" BGCOLOR=\"%s\">Correlative</TD><TD WIDTH=\"200\" BGCOLOR=\"%s\">%d</TD></TR>\n", "#FFFFFF", "#FFFFFF", p.PartCorrelative))
+
+	return sb.String()
 }

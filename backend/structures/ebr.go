@@ -3,6 +3,7 @@ package structures
 import (
 	"backend/utils"
 	"fmt"
+	"strings"
 )
 
 type EBR struct {
@@ -54,4 +55,18 @@ func (e *EBR) Print() {
 	fmt.Println("PartSize: ", e.PartSize)
 	fmt.Println("PartNext: ", e.PartNext)
 	fmt.Println("PartName: ", string(e.PartName[:]))
+}
+
+func (e *EBR) GetStringBuilder() string {
+	var sb strings.Builder
+	eName := strings.TrimRight(string(e.PartName[:]), "\x00")
+	sb.WriteString(fmt.Sprintf("<TR><TD COLSPAN=\"2\" BGCOLOR=\"%s\"><B>Partición Lógica (EBR)</B></TD></TR>\n", "#AAAAAA"))
+	sb.WriteString(fmt.Sprintf("<TR><TD WIDTH=\"100\" BGCOLOR=\"%s\">Status</TD><TD WIDTH=\"200\" BGCOLOR=\"%s\">%c</TD></TR>\n", "#DDDDDD", "#DDDDDD", e.PartMount))
+	sb.WriteString(fmt.Sprintf("<TR><TD WIDTH=\"100\" BGCOLOR=\"%s\">Fit</TD><TD WIDTH=\"200\" BGCOLOR=\"%s\">%c</TD></TR>\n", "#FFFFFF", "#FFFFFF", e.PartFit))
+	sb.WriteString(fmt.Sprintf("<TR><TD WIDTH=\"100\" BGCOLOR=\"%s\">Start</TD><TD WIDTH=\"200\" BGCOLOR=\"%s\">%d</TD></TR>\n", "#DDDDDD", "#DDDDDD", e.PartStart))
+	sb.WriteString(fmt.Sprintf("<TR><TD WIDTH=\"100\" BGCOLOR=\"%s\">Size</TD><TD WIDTH=\"200\" BGCOLOR=\"%s\">%d</TD></TR>\n", "#FFFFFF", "#FFFFFF", e.PartSize))
+	sb.WriteString(fmt.Sprintf("<TR><TD WIDTH=\"100\" BGCOLOR=\"%s\">Next</TD><TD WIDTH=\"200\" BGCOLOR=\"%s\">%d</TD></TR>\n", "#DDDDDD", "#DDDDDD", e.PartNext))
+	sb.WriteString(fmt.Sprintf("<TR><TD WIDTH=\"100\" BGCOLOR=\"%s\">Name</TD><TD WIDTH=\"200\" BGCOLOR=\"%s\">%s</TD></TR>\n", "#FFFFFF", "#FFFFFF", eName))
+
+	return sb.String()
 }
