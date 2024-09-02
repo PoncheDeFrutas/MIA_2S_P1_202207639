@@ -58,6 +58,8 @@ func Analyzer(input string) string {
 			result, err = commands.ParserRmUSR(tokens[1:])
 		case "chgrp":
 			result, err = commands.ParserChGRP(tokens[1:])
+		case "mkdir":
+			result, err = commands.ParserMkDIR(tokens[1:])
 		default:
 			err = fmt.Errorf("command not found: %s", tokens[0])
 		}
