@@ -11,6 +11,12 @@ type PointerBlock struct {
 	// Total size of the PointerBlock is 64 bytes
 }
 
+func (p *PointerBlock) DefaultValue() {
+	for i := range p.PPointers {
+		p.PPointers[i] = -1
+	}
+}
+
 func (p *PointerBlock) WritePointerBlock(path string, offset int64, maxSize int64) error {
 	if err := utils.WriteToFile(path, offset, maxSize, p); err != nil {
 		return err

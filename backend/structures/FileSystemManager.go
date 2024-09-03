@@ -143,7 +143,7 @@ func (sb *SuperBlock) writeFileContent(path string, inode *Inode, content string
 	return totalWritten, nil
 }
 
-func (sb *SuperBlock) CreateDirectory(path string, index int32, dirPath []string, createParents bool) error {
+func (sb *SuperBlock) CreateInode(path string, index int32, dirPath []string, createParents, isFile bool) error {
 	inode := &Inode{}
 	if err := inode.ReadInode(path, int64(sb.SInodeStart+index*sb.SInodeSize)); err != nil {
 		return err
@@ -154,7 +154,7 @@ func (sb *SuperBlock) CreateDirectory(path string, index int32, dirPath []string
 	}
 
 	if len(dirPath) == 1 {
-		return sb.addDirectoryToInode(path, inode, dirPath[0], index)
+		return sb.addInodeToParent(path, inode, dirPath[0], index, isFile)
 	}
 
 	for _, blockIndex := range inode.IBlock {
@@ -163,22 +163,22 @@ func (sb *SuperBlock) CreateDirectory(path string, index int32, dirPath []string
 		}
 		inodeIndex := sb.GetIndexInode(path, blockIndex, dirPath[0])
 		if inodeIndex != -1 {
-			return sb.CreateDirectory(path, inodeIndex, dirPath[1:], createParents)
+			return sb.CreateInode(path, inodeIndex, dirPath[1:], createParents, isFile)
 		}
 	}
 
 	if createParents {
-		if err := sb.addDirectoryToInode(path, inode, dirPath[0], index); err != nil {
+		if err := sb.addInodeToParent(path, inode, dirPath[0], index, false); err != nil {
 			return err
 		}
 		newIndexNode := sb.GetIndexInode(path, inode.IBlock[0], dirPath[0])
-		return sb.CreateDirectory(path, newIndexNode, dirPath[1:], createParents)
+		return sb.CreateInode(path, newIndexNode, dirPath[1:], createParents, isFile)
 	}
 
 	return fmt.Errorf("directory not found: %s", dirPath[0])
 }
 
-func (sb *SuperBlock) addDirectoryToInode(path string, parentInode *Inode, dirName string, parentIndex int32) error {
+func (sb *SuperBlock) addInodeToParent(path string, parentInode *Inode, name string, parentIndex int32, isFile bool) error {
 	for _, blockIndex := range parentInode.IBlock {
 		if blockIndex == -1 {
 			continue
@@ -194,11 +194,15 @@ func (sb *SuperBlock) addDirectoryToInode(path string, parentInode *Inode, dirNa
 				continue
 			}
 
-			copy(block.BContent[j].BName[:], dirName)
+			copy(block.BContent[j].BName[:], name)
 			block.BContent[j].BInode = sb.SInodesCount
 
 			newInode := &Inode{}
 			newInode.DefaultValue(-1)
+			newInode.IType = '1' // Archivo
+			if !isFile {
+				newInode.IType = '0' // Directorio
+			}
 			newInode.IPerm = [3]byte{'6', '6', '4'}
 
 			if err := newInode.WriteInode(path, int64(sb.SFirstIno), int64(sb.SFirstIno+sb.SInodeSize)); err != nil {
@@ -218,12 +222,16 @@ func (sb *SuperBlock) addDirectoryToInode(path string, parentInode *Inode, dirNa
 		}
 	}
 
-	return sb.createNewDirectory(path, parentInode, dirName, parentIndex, sb.findFreeBlockIndex(parentInode))
+	return sb.createNewInode(path, parentInode, name, parentIndex, sb.findFreeBlockIndex(parentInode), isFile)
 }
 
-func (sb *SuperBlock) createNewDirectory(path string, parentInode *Inode, dirName string, parentIndex, blockIndex int32) error {
+func (sb *SuperBlock) createNewInode(path string, parentInode *Inode, name string, parentIndex, blockIndex int32, isFile bool) error {
 	newInode := &Inode{}
 	newInode.DefaultValue(-1)
+	newInode.IType = '1' // Archivo
+	if !isFile {
+		newInode.IType = '0' // Directorio
+	}
 	newInode.IPerm = [3]byte{'6', '6', '4'}
 
 	block := &FolderBlock{}
@@ -239,7 +247,7 @@ func (sb *SuperBlock) createNewDirectory(path string, parentInode *Inode, dirNam
 			continue
 		}
 
-		copy(block.BContent[i].BName[:], dirName)
+		copy(block.BContent[i].BName[:], name)
 		block.BContent[i].BInode = sb.SInodesCount
 
 		if err := block.WriteFolderBlock(path, int64(sb.SFirstBlo), int64(sb.SFirstBlo+sb.SBlockSize)); err != nil {

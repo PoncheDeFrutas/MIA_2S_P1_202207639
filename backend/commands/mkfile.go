@@ -1,7 +1,10 @@
 package commands
 
 import (
+	"backend/global"
+	"backend/structures"
 	"backend/utils"
+	"encoding/binary"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -23,13 +26,21 @@ func ParserMkFile(tokens []string) (string, error) {
 	matches := re.FindAllString(args, -1)
 
 	for _, match := range matches {
-		key, value, err := utils.ParseToken(match)
-		if err != nil {
-			return "", err
-		}
+		var key, value string
+		var err error
 
-		if strings.HasPrefix(value, "\"") && strings.HasSuffix(value, "\"") {
-			value = strings.Trim(value, "\"")
+		if match == "-r" {
+			key = "-r"
+			value = ""
+		} else {
+			key, value, err = utils.ParseToken(match)
+			if err != nil {
+				return "", err
+			}
+
+			if strings.HasPrefix(value, "\"") && strings.HasSuffix(value, "\"") {
+				value = strings.Trim(value, "\"")
+			}
 		}
 
 		switch key {
@@ -66,5 +77,58 @@ func ParserMkFile(tokens []string) (string, error) {
 }
 
 func (cmd *MkFile) commandMkFile() error {
+	_, _, err := global.GetLoggedUser()
+	if err != nil {
+		return fmt.Errorf("you must be logged in")
+	}
+
+	mountedPartition, partitionPath, err := global.GetMountedPartition(global.LoggedPartition)
+	if err != nil {
+		return err
+	}
+
+	sb := &structures.SuperBlock{}
+	if err := sb.ReadSuperBlock(partitionPath, int64(mountedPartition.PartStart)); err != nil {
+		return err
+	}
+
+	array := strings.Split(cmd.Path, "/")
+	var result []string
+	for _, part := range array {
+		if part != "" {
+			result = append(result, part)
+		}
+	}
+
+	if err := sb.CreateInode(partitionPath, 0, result, cmd.R, true); err != nil {
+		return err
+	}
+
+	if err := sb.WriteSuperBlock(partitionPath, int64(mountedPartition.PartStart), int64(mountedPartition.PartStart+int32(binary.Size(sb)))); err != nil {
+		return err
+	}
+
+	cont := generateNumberString(cmd.Size)
+	if _, err := sb.WriteFile(partitionPath, int32(0), result, cont); err != nil {
+		return err
+	}
+
+	content := sb.GetFile(partitionPath, int32(0), result)
+
+	if cmd.Cont != "" {
+		if _, err := sb.WriteFile(partitionPath, int32(0), result, content); err != nil {
+			return err
+		}
+	}
+
 	return nil
+}
+
+func generateNumberString(n int) string {
+	base := "0123456789"
+
+	repeatCount := n / len(base)
+	remainder := n % len(base)
+
+	return strings.Repeat(base, repeatCount) + base[:remainder]
 }

@@ -86,7 +86,7 @@ func (cmd *MkDIR) commandMkDIR() error {
 		}
 	}
 
-	if err := sb.CreateDirectory(partitionPath, 0, result, true); err != nil {
+	if err := sb.CreateInode(partitionPath, 0, result, cmd.P, false); err != nil {
 		return err
 	}
 

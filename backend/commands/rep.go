@@ -275,7 +275,8 @@ func (cmd *REP) repBlock() error {
 		}
 
 		// Process each block for the inode
-		for _, blockIndex := range inode.IBlock {
+		for j := 0; j < 12; j++ {
+			blockIndex := inode.IBlock[j]
 			if blockIndex == -1 {
 				break
 			}
@@ -288,6 +289,30 @@ func (cmd *REP) repBlock() error {
 
 			sb.WriteString(fmt.Sprintf("Inodo_%d -> Bloque_%d\n", i, blockIndex))
 		}
+		if inode.IBlock[12] != -1 {
+			pointerBlock := &structures.PointerBlock{}
+			if err := pointerBlock.ReadPointerBlock(path, int64(superBlock.SBlockStart+(inode.IBlock[12]*superBlock.SBlockSize))); err != nil {
+				return err
+			}
+			sb.WriteString(pointerBlock.GetStringBuilder(fmt.Sprintf("Bloque_%d", inode.IBlock[12])))
+			sb.WriteString(fmt.Sprintf("Inodo_%d -> Bloque_%d\n", i, inode.IBlock[12]))
+
+			for j := 0; j < 16; j++ {
+				blockIndex := pointerBlock.PPointers[j]
+				if blockIndex == -1 {
+					break
+				}
+				blockStart := int64(superBlock.SBlockStart + (blockIndex * superBlock.SBlockSize))
+				blockString, err := readBlock(path, blockStart)
+				if err != nil {
+					return err
+				}
+				sb.WriteString(blockString)
+
+				sb.WriteString(fmt.Sprintf("Bloque_%d -> Bloque_%d\n", inode.IBlock[12], blockIndex))
+			}
+		}
+
 	}
 
 	sb.WriteString("}")
