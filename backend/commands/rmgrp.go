@@ -48,7 +48,7 @@ func ParserRmGRP(tokens []string) (string, error) {
 		return "", err
 	}
 
-	return "", nil
+	return cmd.Print(), nil
 }
 
 func (cmd *RmGRP) commandRmGRP() error {
@@ -85,4 +85,8 @@ func (cmd *RmGRP) commandRmGRP() error {
 	}
 
 	return nil
+}
+
+func (cmd *RmGRP) Print() string {
+	return fmt.Sprintf("group %s removed", cmd.Name)
 }

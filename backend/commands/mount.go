@@ -57,7 +57,7 @@ func ParserMount(tokens []string) (string, error) {
 		return "", err
 	}
 
-	return "", nil
+	return cmd.Print(), nil
 }
 
 func (cmd *Mount) commandMount() error {
@@ -105,4 +105,8 @@ func (cmd *Mount) GenerateIdPartition(indexPartition int) (string, error) {
 	}
 
 	return fmt.Sprintf("%s%d%s", global.Carnet, indexPartition+1, letter), nil
+}
+
+func (cmd *Mount) Print() string {
+	return fmt.Sprintf("partition mounted successfully with id: %s", global.MountedPartitions[fmt.Sprintf("%s%s", global.Carnet, cmd.Name)])
 }

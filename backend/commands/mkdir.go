@@ -59,7 +59,7 @@ func ParserMkDIR(tokens []string) (string, error) {
 		return "", err
 	}
 
-	return "", nil
+	return cmd.Print(), nil
 }
 
 func (cmd *MkDIR) commandMkDIR() error {
@@ -95,4 +95,8 @@ func (cmd *MkDIR) commandMkDIR() error {
 	}
 
 	return nil
+}
+
+func (cmd *MkDIR) Print() string {
+	return fmt.Sprintf("directory created successfully in %s", cmd.Path)
 }

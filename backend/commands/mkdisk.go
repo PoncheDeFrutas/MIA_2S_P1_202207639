@@ -81,7 +81,7 @@ func ParserMkDisk(tokens []string) (string, error) {
 		return "", err
 	}
 
-	return "", nil
+	return cmd.Print(), nil
 }
 
 func (cmd *MkDisk) commandMkDisk() error {
@@ -143,4 +143,8 @@ func (cmd *MkDisk) createDisk(sizeInBytes int) error {
 	}
 
 	return nil
+}
+
+func (cmd *MkDisk) Print() string {
+	return fmt.Sprintf("Disk created successfully at: %s\nSize: %d%s\nFit: %s", cmd.Path, cmd.Size, cmd.Unit, cmd.Fit)
 }

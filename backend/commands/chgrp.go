@@ -92,3 +92,7 @@ func (cmd *ChGRP) commandChGRP() error {
 
 	return nil
 }
+
+func (cmd *ChGRP) Print() string {
+	return fmt.Sprintf("Group of user %s changed to %s", cmd.User, cmd.GRP)
+}

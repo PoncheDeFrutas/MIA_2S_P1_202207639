@@ -73,7 +73,7 @@ func ParserMkFile(tokens []string) (string, error) {
 		return "", err
 	}
 
-	return "", nil
+	return cmd.Print(), nil
 }
 
 func (cmd *MkFile) commandMkFile() error {
@@ -131,4 +131,8 @@ func generateNumberString(n int) string {
 	remainder := n % len(base)
 
 	return strings.Repeat(base, repeatCount) + base[:remainder]
+}
+
+func (cmd *MkFile) Print() string {
+	return fmt.Sprintf("File created successfully in %s", cmd.Path)
 }

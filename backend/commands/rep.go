@@ -100,7 +100,7 @@ func (cmd *REP) commandREP() error {
 	case "sb":
 		return cmd.repSB()
 	case "file":
-		//return cmd.repFile()
+		return cmd.repFile()
 	case "ls":
 		//return cmd.repLS()
 	default:
@@ -355,6 +355,38 @@ func (cmd *REP) repBMBlock() error {
 	}
 
 	return cmd.generateTxt(text)
+}
+
+func (cmd *REP) repFile() error {
+	partition, path, err := global.GetMountedPartition(cmd.Id)
+	if err != nil {
+		return err
+	}
+
+	superBlock := &structures.SuperBlock{}
+	if err := superBlock.ReadSuperBlock(path, int64(partition.PartStart)); err != nil {
+		return err
+	}
+
+	filePath := strings.Split(cmd.PathFileLs, "/")
+	fileName := filePath[len(filePath)-1]
+
+	sb := &structures.SuperBlock{}
+	if err := sb.ReadSuperBlock(path, int64(partition.PartStart)); err != nil {
+		return err
+	}
+
+	inodeIndex := sb.GetIndexInode(path, 0, fileName)
+	if inodeIndex == -1 {
+		return fmt.Errorf("file not found: %s", fileName)
+	}
+
+	content := sb.GetFile(path, inodeIndex, filePath)
+	if content == "" {
+		return fmt.Errorf("error reading file: %s", fileName)
+	}
+
+	return cmd.generateTxt(content)
 }
 
 func (cmd *REP) generateImage(content string) error {

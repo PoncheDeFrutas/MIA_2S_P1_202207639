@@ -71,6 +71,7 @@ func (cmd *Cat) commandCat() (string, error) {
 		response := sb.GetFile(partitionPath, 0, result)
 		if response != "" {
 			sb2.WriteString(response)
+			sb2.WriteString("\n")
 		}
 	}
 
