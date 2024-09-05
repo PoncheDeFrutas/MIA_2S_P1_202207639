@@ -46,7 +46,6 @@ func ReadFromFile(path string, offset int64, data interface{}) error {
 	if err != nil {
 		return fmt.Errorf("failed to open file: %v", err)
 	}
-
 	defer func(file *os.File) {
 		err := file.Close()
 		if err != nil {
@@ -54,8 +53,23 @@ func ReadFromFile(path string, offset int64, data interface{}) error {
 		}
 	}(file)
 
+	fileInfo, err := file.Stat()
+	if err != nil {
+		return fmt.Errorf("failed to get file info: %v", err)
+	}
+	fileSize := fileInfo.Size()
+
+	if offset >= fileSize {
+		return fmt.Errorf("offset is beyond the file size")
+	}
+
 	if _, err = file.Seek(offset, 0); err != nil {
 		return fmt.Errorf("failed to seek file: %v", err)
+	}
+
+	dataSize := int64(binary.Size(data))
+	if fileSize-offset < dataSize {
+		return fmt.Errorf("not enough data to read: file size is %d but need %d bytes from offset %d", fileSize, dataSize, offset)
 	}
 
 	if err = binary.Read(file, binary.LittleEndian, data); err != nil {

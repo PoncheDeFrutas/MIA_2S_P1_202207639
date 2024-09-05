@@ -289,16 +289,18 @@ func (cmd *REP) repBlock() error {
 
 			sb.WriteString(fmt.Sprintf("Inodo_%d -> Bloque_%d\n", i, blockIndex))
 		}
+
+		// Process indirect blocks
 		if inode.IBlock[12] != -1 {
-			pointerBlock := &structures.PointerBlock{}
-			if err := pointerBlock.ReadPointerBlock(path, int64(superBlock.SBlockStart+(inode.IBlock[12]*superBlock.SBlockSize))); err != nil {
+			indirectBlock := &structures.PointerBlock{}
+			if err := indirectBlock.ReadPointerBlock(path, int64(superBlock.SBlockStart+(inode.IBlock[12]*superBlock.SBlockSize))); err != nil {
 				return err
 			}
-			sb.WriteString(pointerBlock.GetStringBuilder(fmt.Sprintf("Bloque_%d", inode.IBlock[12])))
+			sb.WriteString(indirectBlock.GetStringBuilder(fmt.Sprintf("Bloque_%d", inode.IBlock[12])))
 			sb.WriteString(fmt.Sprintf("Inodo_%d -> Bloque_%d\n", i, inode.IBlock[12]))
 
 			for j := 0; j < 16; j++ {
-				blockIndex := pointerBlock.PPointers[j]
+				blockIndex := indirectBlock.PPointers[j]
 				if blockIndex == -1 {
 					break
 				}
@@ -313,8 +315,97 @@ func (cmd *REP) repBlock() error {
 			}
 		}
 
-	}
+		// Process double indirect blocks
+		if inode.IBlock[13] != -1 {
+			doubleIndirectBlock := &structures.PointerBlock{}
+			if err := doubleIndirectBlock.ReadPointerBlock(path, int64(superBlock.SBlockStart+(inode.IBlock[13]*superBlock.SBlockSize))); err != nil {
+				return err
+			}
+			sb.WriteString(doubleIndirectBlock.GetStringBuilder(fmt.Sprintf("Bloque_%d", inode.IBlock[13])))
+			sb.WriteString(fmt.Sprintf("Inodo_%d -> Bloque_%d\n", i, inode.IBlock[13]))
 
+			for j := 0; j < 16; j++ {
+				indirectBlock := &structures.PointerBlock{}
+				if doubleIndirectBlock.PPointers[j] == -1 {
+					continue
+				}
+
+				if err := indirectBlock.ReadPointerBlock(path, int64(superBlock.SBlockStart+(doubleIndirectBlock.PPointers[j]*superBlock.SBlockSize))); err != nil {
+					return err
+				}
+				sb.WriteString(indirectBlock.GetStringBuilder(fmt.Sprintf("Bloque_%d", doubleIndirectBlock.PPointers[j])))
+				sb.WriteString(fmt.Sprintf("Bloque_%d -> Bloque_%d\n", inode.IBlock[13], doubleIndirectBlock.PPointers[j]))
+
+				for k := 0; k < 16; k++ {
+					blockIndex := indirectBlock.PPointers[k]
+					if blockIndex == -1 {
+						continue
+					}
+					blockStart := int64(superBlock.SBlockStart + (blockIndex * superBlock.SBlockSize))
+					blockString, err := readBlock(path, blockStart)
+					if err != nil {
+						return err
+					}
+					sb.WriteString(blockString)
+
+					sb.WriteString(fmt.Sprintf("Bloque_%d -> Bloque_%d\n", doubleIndirectBlock.PPointers[j], blockIndex))
+				}
+			}
+		}
+
+		// Process triple indirect blocks
+		if inode.IBlock[14] != -1 {
+			tripleIndirectBlock := &structures.PointerBlock{}
+			if err := tripleIndirectBlock.ReadPointerBlock(path, int64(superBlock.SBlockStart+(inode.IBlock[14]*superBlock.SBlockSize))); err != nil {
+				return err
+			}
+			sb.WriteString(tripleIndirectBlock.GetStringBuilder(fmt.Sprintf("Bloque_%d", inode.IBlock[14])))
+			sb.WriteString(fmt.Sprintf("Inodo_%d -> Bloque_%d\n", i, inode.IBlock[14]))
+
+			for j := 0; j < 16; j++ {
+				doubleIndirectBlock := &structures.PointerBlock{}
+				if tripleIndirectBlock.PPointers[j] == -1 {
+					continue
+				}
+
+				if err := doubleIndirectBlock.ReadPointerBlock(path, int64(superBlock.SBlockStart+(tripleIndirectBlock.PPointers[j]*superBlock.SBlockSize))); err != nil {
+					return err
+				}
+				sb.WriteString(doubleIndirectBlock.GetStringBuilder(fmt.Sprintf("Bloque_%d", tripleIndirectBlock.PPointers[j])))
+				sb.WriteString(fmt.Sprintf("Bloque_%d -> Bloque_%d\n", inode.IBlock[14], tripleIndirectBlock.PPointers[j]))
+
+				for k := 0; k < 16; k++ {
+					indirectBlock := &structures.PointerBlock{}
+					if doubleIndirectBlock.PPointers[k] == -1 {
+						continue
+					}
+
+					if err := indirectBlock.ReadPointerBlock(path, int64(superBlock.SBlockStart+(doubleIndirectBlock.PPointers[k]*superBlock.SBlockSize))); err != nil {
+						return err
+					}
+
+					sb.WriteString(indirectBlock.GetStringBuilder(fmt.Sprintf("Bloque_%d", doubleIndirectBlock.PPointers[k])))
+					sb.WriteString(fmt.Sprintf("Bloque_%d -> Bloque_%d\n", tripleIndirectBlock.PPointers[j], doubleIndirectBlock.PPointers[k]))
+
+					for l := 0; l < 16; l++ {
+						blockIndex := indirectBlock.PPointers[l]
+						if blockIndex == -1 {
+							continue
+						}
+						blockStart := int64(superBlock.SBlockStart + (blockIndex * superBlock.SBlockSize))
+						blockString, err := readBlock(path, blockStart)
+						if err != nil {
+							return err
+						}
+						sb.WriteString(blockString)
+
+						sb.WriteString(fmt.Sprintf("Bloque_%d -> Bloque_%d\n", doubleIndirectBlock.PPointers[k], blockIndex))
+
+					}
+				}
+			}
+		}
+	}
 	sb.WriteString("}")
 	return cmd.generateImage(sb.String())
 }
@@ -376,7 +467,7 @@ func (cmd *REP) repFile() error {
 		return err
 	}
 
-	inodeIndex := sb.GetIndexInode(path, 0, fileName)
+	inodeIndex := sb.GetIndexInode(path, fileName, 0)
 	if inodeIndex == -1 {
 		return fmt.Errorf("file not found: %s", fileName)
 	}

@@ -17,6 +17,15 @@ func (p *PointerBlock) DefaultValue() {
 	}
 }
 
+func (p *PointerBlock) FindFreePointer() int32 {
+	for i, pointer := range p.PPointers {
+		if pointer == -1 {
+			return int32(i)
+		}
+	}
+	return -1
+}
+
 func (p *PointerBlock) WritePointerBlock(path string, offset int64, maxSize int64) error {
 	if err := utils.WriteToFile(path, offset, maxSize, p); err != nil {
 		return err

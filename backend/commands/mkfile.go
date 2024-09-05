@@ -100,7 +100,7 @@ func (cmd *MkFile) commandMkFile() error {
 		}
 	}
 
-	if err := sb.CreateInode(partitionPath, 0, result, cmd.R, true); err != nil {
+	if err := sb.CreatePath(partitionPath, 0, result, cmd.R, true); err != nil {
 		return err
 	}
 
