@@ -56,6 +56,12 @@ func (f *FolderContent) Print(i int) {
 func (f *FolderBlock) GetStringBuilder(nodeName string) string {
 	var sb strings.Builder
 
+	if f.BContent[2].BInode != -1 {
+		sb.WriteString(fmt.Sprintf("%s -> Inodo_%d\n", nodeName, f.BContent[2].BInode))
+	}
+	if f.BContent[3].BInode != -1 {
+		sb.WriteString(fmt.Sprintf("%s -> Inodo_%d\n", nodeName, f.BContent[3].BInode))
+	}
 	sb.WriteString(fmt.Sprintf("    %s [label=<\n", nodeName))
 	sb.WriteString(fmt.Sprintf("    <TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\">\n"))
 

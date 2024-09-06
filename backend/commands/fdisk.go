@@ -107,7 +107,7 @@ func ParserFDisk(tokens []string) (string, error) {
 	if err := mbr.ReadMBR(cmd.Path); err != nil {
 		return "", err
 	}
-	return "", nil
+	return cmd.Print(), nil
 }
 
 func (cmd *FDisk) commandFDisk() error {
@@ -241,4 +241,8 @@ func (cmd *FDisk) findAvailableSpace(mbr *structures.MBR, sizeInBytes int) (int,
 		return -1, -1, fmt.Errorf("no space available for partition")
 	}
 	return indexPart, indexByte, nil
+}
+
+func (cmd *FDisk) Print() string {
+	return fmt.Sprintf("FDISK\n Size: %d\n Unit: %s\n Path: %s\n Type: %s\n Fit: %s\n Name: %s\n", cmd.Size, cmd.Unit, cmd.Path, cmd.Type, cmd.Fit, cmd.Name)
 }

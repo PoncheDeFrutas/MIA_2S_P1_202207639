@@ -1,7 +1,7 @@
 import './App.css';
-import React, { useState } from 'react';
-import { EditorComponent } from '../components/editor';
-import { POST } from '../services/api.tsx';
+import React, {useState} from 'react';
+import {EditorComponent} from '../components/editor';
+import {POST} from '../services/api.tsx';
 
 function App() {
     const [fileContent, setFileContent] = useState("");
@@ -23,7 +23,7 @@ function App() {
     };
 
     const handleSaveFile = () => {
-        const blob = new Blob([fileContent], { type: 'text/plain;charset=utf-8' });
+        const blob = new Blob([fileContent], {type: 'text/plain;charset=utf-8'});
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
@@ -34,7 +34,7 @@ function App() {
 
     const handleExecute = async () => {
         try {
-            const response = await POST('http://localhost:5000/execute', { content: fileContent });
+            const response = await POST('http://localhost:5000/execute', {content: fileContent});
             const resultText = response.result;
             setOutput(resultText);
         } catch (error) {

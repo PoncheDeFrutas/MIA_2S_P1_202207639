@@ -72,7 +72,7 @@ func ParserMkUSR(tokens []string) (string, error) {
 		return "", err
 	}
 
-	return "", nil
+	return cmd.Print(), nil
 }
 
 func (cmd *MkUSR) commandMkUSR() error {
@@ -109,4 +109,8 @@ func (cmd *MkUSR) commandMkUSR() error {
 	}
 
 	return nil
+}
+
+func (cmd *MkUSR) Print() string {
+	return fmt.Sprintf("user %s created in group %s", cmd.User, cmd.Grp)
 }
