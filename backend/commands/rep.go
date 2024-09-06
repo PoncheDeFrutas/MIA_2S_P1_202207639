@@ -88,7 +88,7 @@ func (cmd *REP) commandREP() error {
 	case "mbr":
 		return cmd.repMBR()
 	case "disk":
-		//return cmd.repDisk()
+		return cmd.repDisk()
 	case "inode":
 		return cmd.repInode()
 	case "block":
@@ -100,7 +100,7 @@ func (cmd *REP) commandREP() error {
 	case "sb":
 		return cmd.repSB()
 	case "file":
-		//return cmd.repFile()
+		return cmd.repFile()
 	case "ls":
 		//return cmd.repLS()
 	default:
@@ -156,6 +156,81 @@ func (cmd *REP) repMBR() error {
 
 	sb.WriteString("    </TABLE>\n")
 	sb.WriteString("    >];\n")
+	sb.WriteString("}\n")
+
+	return cmd.generateImage(sb.String())
+}
+
+func (cmd *REP) repDisk() error {
+	_, path, err := global.GetMountedPartition(cmd.Id)
+	if err != nil {
+		return err
+	}
+
+	mbr := &structures.MBR{}
+	if err := mbr.ReadMBR(path); err != nil {
+		return err
+	}
+	var sb strings.Builder
+	sb.WriteString("digraph G {\n")
+	sb.WriteString("\tnode [shape=plaintext];\n")
+	sb.WriteString("\tReporteMBR [label=<\n")
+	sb.WriteString("\t<TABLE BORDER=\"1\" CELLBORDER=\"1\" CELLSPACING=\"0\" CELLPADDING=\"4\">\n")
+
+	sb.WriteString("<TR><TD rowspan=\"2\" BGCOLOR=\"#AAAAAA\"><B>MBR</B></TD>\n")
+
+	for _, partition := range mbr.MbrPartition {
+		if partition.PartStart == -1 {
+			continue
+		}
+
+		if partition.PartType == 'P' {
+			sb.WriteString(fmt.Sprintf("<TD rowspan=\"2\">%s<br/>(%.2f%%)</TD>\n",
+				strings.TrimRight(string(partition.PartName[:]), "\x00"), float64(partition.PartSize)/float64(mbr.MbrSize)*100))
+		}
+
+		if partition.PartType == 'E' {
+			sb.WriteString("<TD rowspan=\"2\">\n")
+			sb.WriteString("<TABLE BORDER=\"1\" CELLBORDER=\"1\" CELLSPACING=\"0\" CELLPADDING=\"4\">\n")
+			sb.WriteString("<TR><TD BGCOLOR=\"#CCCCCC\" colspan=\"999\"><B>Extended Partition</B></TD></TR>\n")
+
+			sb.WriteString("<TR>\n")
+
+			ebr, temp := structures.EBR{}, structures.EBR{}
+			if err := ebr.ReadEBR(path, int64(partition.PartStart)); err != nil {
+				return err
+			}
+
+			for {
+				if ebr.PartNext != -1 {
+					temp = ebr
+					sb.WriteString(fmt.Sprintf("<TD>%s<br/>(%.2f%%)</TD>\n",
+						strings.TrimRight(string(ebr.PartName[:]), "\x00"), float64(ebr.PartSize)/float64(mbr.MbrSize)*100))
+				} else {
+					sb.WriteString(fmt.Sprintf("<TD>%s<br/>(%.2f%%)</TD>\n",
+						strings.TrimRight(string("Free space"), "\x00"),
+						float64((partition.PartStart+partition.PartSize)-(temp.PartSize+temp.PartStart))/float64(mbr.MbrSize)*100))
+					break
+				}
+
+				if err := ebr.ReadEBR(path, int64(ebr.PartNext)); err != nil {
+					return err
+				}
+			}
+
+			sb.WriteString("</TR>\n")
+
+			sb.WriteString("</TABLE>\n")
+			sb.WriteString("</TD>\n")
+		}
+	}
+
+	objects := structures.ConvertToObjects(mbr.MbrPartition[:])
+	firstFree := structures.FirstFit(objects, int32(1), int32(153), mbr.MbrSize)
+	sb.WriteString(fmt.Sprintf("<TD rowspan=\"2\">%s<br/>(%.2f%%)</TD>\n",
+		strings.TrimRight(string("free space"), "\x00"), float64(mbr.MbrSize-firstFree)/float64(mbr.MbrSize)*100))
+	sb.WriteString("</TR></TABLE>\n")
+	sb.WriteString(">];\n")
 	sb.WriteString("}\n")
 
 	return cmd.generateImage(sb.String())
@@ -275,7 +350,8 @@ func (cmd *REP) repBlock() error {
 		}
 
 		// Process each block for the inode
-		for _, blockIndex := range inode.IBlock {
+		for j := 0; j < 12; j++ {
+			blockIndex := inode.IBlock[j]
 			if blockIndex == -1 {
 				break
 			}
@@ -288,8 +364,123 @@ func (cmd *REP) repBlock() error {
 
 			sb.WriteString(fmt.Sprintf("Inodo_%d -> Bloque_%d\n", i, blockIndex))
 		}
-	}
 
+		// Process indirect blocks
+		if inode.IBlock[12] != -1 {
+			indirectBlock := &structures.PointerBlock{}
+			if err := indirectBlock.ReadPointerBlock(path, int64(superBlock.SBlockStart+(inode.IBlock[12]*superBlock.SBlockSize))); err != nil {
+				return err
+			}
+			sb.WriteString(indirectBlock.GetStringBuilder(fmt.Sprintf("Bloque_%d", inode.IBlock[12])))
+			sb.WriteString(fmt.Sprintf("Inodo_%d -> Bloque_%d\n", i, inode.IBlock[12]))
+
+			for j := 0; j < 16; j++ {
+				blockIndex := indirectBlock.PPointers[j]
+				if blockIndex == -1 {
+					break
+				}
+				blockStart := int64(superBlock.SBlockStart + (blockIndex * superBlock.SBlockSize))
+				blockString, err := readBlock(path, blockStart)
+				if err != nil {
+					return err
+				}
+				sb.WriteString(blockString)
+
+				sb.WriteString(fmt.Sprintf("Bloque_%d -> Bloque_%d\n", inode.IBlock[12], blockIndex))
+			}
+		}
+
+		// Process double indirect blocks
+		if inode.IBlock[13] != -1 {
+			doubleIndirectBlock := &structures.PointerBlock{}
+			if err := doubleIndirectBlock.ReadPointerBlock(path, int64(superBlock.SBlockStart+(inode.IBlock[13]*superBlock.SBlockSize))); err != nil {
+				return err
+			}
+			sb.WriteString(doubleIndirectBlock.GetStringBuilder(fmt.Sprintf("Bloque_%d", inode.IBlock[13])))
+			sb.WriteString(fmt.Sprintf("Inodo_%d -> Bloque_%d\n", i, inode.IBlock[13]))
+
+			for j := 0; j < 16; j++ {
+				indirectBlock := &structures.PointerBlock{}
+				if doubleIndirectBlock.PPointers[j] == -1 {
+					continue
+				}
+
+				if err := indirectBlock.ReadPointerBlock(path, int64(superBlock.SBlockStart+(doubleIndirectBlock.PPointers[j]*superBlock.SBlockSize))); err != nil {
+					return err
+				}
+				sb.WriteString(indirectBlock.GetStringBuilder(fmt.Sprintf("Bloque_%d", doubleIndirectBlock.PPointers[j])))
+				sb.WriteString(fmt.Sprintf("Bloque_%d -> Bloque_%d\n", inode.IBlock[13], doubleIndirectBlock.PPointers[j]))
+
+				for k := 0; k < 16; k++ {
+					blockIndex := indirectBlock.PPointers[k]
+					if blockIndex == -1 {
+						continue
+					}
+					blockStart := int64(superBlock.SBlockStart + (blockIndex * superBlock.SBlockSize))
+					blockString, err := readBlock(path, blockStart)
+					if err != nil {
+						return err
+					}
+					sb.WriteString(blockString)
+
+					sb.WriteString(fmt.Sprintf("Bloque_%d -> Bloque_%d\n", doubleIndirectBlock.PPointers[j], blockIndex))
+				}
+			}
+		}
+
+		// Process triple indirect blocks
+		if inode.IBlock[14] != -1 {
+			tripleIndirectBlock := &structures.PointerBlock{}
+			if err := tripleIndirectBlock.ReadPointerBlock(path, int64(superBlock.SBlockStart+(inode.IBlock[14]*superBlock.SBlockSize))); err != nil {
+				return err
+			}
+			sb.WriteString(tripleIndirectBlock.GetStringBuilder(fmt.Sprintf("Bloque_%d", inode.IBlock[14])))
+			sb.WriteString(fmt.Sprintf("Inodo_%d -> Bloque_%d\n", i, inode.IBlock[14]))
+
+			for j := 0; j < 16; j++ {
+				doubleIndirectBlock := &structures.PointerBlock{}
+				if tripleIndirectBlock.PPointers[j] == -1 {
+					continue
+				}
+
+				if err := doubleIndirectBlock.ReadPointerBlock(path, int64(superBlock.SBlockStart+(tripleIndirectBlock.PPointers[j]*superBlock.SBlockSize))); err != nil {
+					return err
+				}
+				sb.WriteString(doubleIndirectBlock.GetStringBuilder(fmt.Sprintf("Bloque_%d", tripleIndirectBlock.PPointers[j])))
+				sb.WriteString(fmt.Sprintf("Bloque_%d -> Bloque_%d\n", inode.IBlock[14], tripleIndirectBlock.PPointers[j]))
+
+				for k := 0; k < 16; k++ {
+					indirectBlock := &structures.PointerBlock{}
+					if doubleIndirectBlock.PPointers[k] == -1 {
+						continue
+					}
+
+					if err := indirectBlock.ReadPointerBlock(path, int64(superBlock.SBlockStart+(doubleIndirectBlock.PPointers[k]*superBlock.SBlockSize))); err != nil {
+						return err
+					}
+
+					sb.WriteString(indirectBlock.GetStringBuilder(fmt.Sprintf("Bloque_%d", doubleIndirectBlock.PPointers[k])))
+					sb.WriteString(fmt.Sprintf("Bloque_%d -> Bloque_%d\n", tripleIndirectBlock.PPointers[j], doubleIndirectBlock.PPointers[k]))
+
+					for l := 0; l < 16; l++ {
+						blockIndex := indirectBlock.PPointers[l]
+						if blockIndex == -1 {
+							continue
+						}
+						blockStart := int64(superBlock.SBlockStart + (blockIndex * superBlock.SBlockSize))
+						blockString, err := readBlock(path, blockStart)
+						if err != nil {
+							return err
+						}
+						sb.WriteString(blockString)
+
+						sb.WriteString(fmt.Sprintf("Bloque_%d -> Bloque_%d\n", doubleIndirectBlock.PPointers[k], blockIndex))
+
+					}
+				}
+			}
+		}
+	}
 	sb.WriteString("}")
 	return cmd.generateImage(sb.String())
 }
@@ -330,6 +521,38 @@ func (cmd *REP) repBMBlock() error {
 	}
 
 	return cmd.generateTxt(text)
+}
+
+func (cmd *REP) repFile() error {
+	partition, path, err := global.GetMountedPartition(cmd.Id)
+	if err != nil {
+		return err
+	}
+
+	superBlock := &structures.SuperBlock{}
+	if err := superBlock.ReadSuperBlock(path, int64(partition.PartStart)); err != nil {
+		return err
+	}
+
+	filePath := strings.Split(cmd.PathFileLs, "/")
+	fileName := filePath[len(filePath)-1]
+
+	sb := &structures.SuperBlock{}
+	if err := sb.ReadSuperBlock(path, int64(partition.PartStart)); err != nil {
+		return err
+	}
+
+	inodeIndex := sb.GetIndexInode(path, fileName, 0)
+	if inodeIndex == -1 {
+		return fmt.Errorf("file not found: %s", fileName)
+	}
+
+	content := sb.GetFile(path, inodeIndex, filePath)
+	if content == "" {
+		return fmt.Errorf("error reading file: %s", fileName)
+	}
+
+	return cmd.generateTxt(content)
 }
 
 func (cmd *REP) generateImage(content string) error {

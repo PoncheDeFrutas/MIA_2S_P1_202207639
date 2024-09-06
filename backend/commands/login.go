@@ -69,7 +69,7 @@ func ParserLogin(tokens []string) (string, error) {
 		return "", err
 	}
 
-	return "", nil
+	return cmd.Print(), nil
 }
 
 func (cmd *Login) commandLogin() error {
@@ -98,4 +98,8 @@ func (cmd *Login) commandLogin() error {
 	}
 
 	return nil
+}
+
+func (cmd *Login) Print() string {
+	return fmt.Sprintf("User %s logged in", cmd.User)
 }

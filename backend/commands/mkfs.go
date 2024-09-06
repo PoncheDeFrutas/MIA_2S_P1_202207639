@@ -54,7 +54,7 @@ func ParserMkFs(tokens []string) (string, error) {
 		return "", err
 	}
 
-	return "", nil
+	return cmd.Print(), nil
 }
 
 func (cmd *MkFs) commandMkFs() error {
@@ -91,4 +91,8 @@ func (cmd *MkFs) commandMkFs() error {
 	}
 
 	return nil
+}
+
+func (cmd *MkFs) Print() string {
+	return fmt.Sprintf("File system created successfully in partition %s", cmd.Id)
 }

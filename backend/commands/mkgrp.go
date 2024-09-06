@@ -48,7 +48,7 @@ func ParserMkGRP(tokens []string) (string, error) {
 		return "", err
 	}
 
-	return "", nil
+	return cmd.Print(), nil
 }
 
 func (cmd *MkGRP) commandMkGRP() error {
@@ -85,4 +85,8 @@ func (cmd *MkGRP) commandMkGRP() error {
 	}
 
 	return nil
+}
+
+func (cmd *MkGRP) Print() string {
+	return fmt.Sprintf("group %s created", cmd.Name)
 }

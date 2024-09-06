@@ -198,6 +198,16 @@ func GetLoggedUser() (string, string, error) {
 	return LoggedUser, LoggedPartition, nil
 }
 
+func GetInfoUser(username string) User {
+	for _, user := range Users[username] {
+		if user.UserGroup.ID != "0" {
+			return user
+		}
+	}
+
+	return User{}
+}
+
 func LogUserIn(username, password, partition string) error {
 	userList, exists := Users[username]
 	if !exists {

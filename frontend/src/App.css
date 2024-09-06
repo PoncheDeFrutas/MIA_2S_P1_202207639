@@ -109,6 +109,8 @@ html, body {
   color: #ffffff;
   padding: 10px;
   font-family: monospace;
+  overflow-x: auto;
+  white-space: pre;
 }
 
 .file-input {

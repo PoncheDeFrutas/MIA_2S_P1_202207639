@@ -16,7 +16,7 @@ func Analyzer(input string) string {
 
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
-		if line == "" {
+		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
 
@@ -60,6 +60,10 @@ func Analyzer(input string) string {
 			result, err = commands.ParserChGRP(tokens[1:])
 		case "mkdir":
 			result, err = commands.ParserMkDIR(tokens[1:])
+		case "mkfile":
+			result, err = commands.ParserMkFile(tokens[1:])
+		case "cat":
+			result, err = commands.ParserCat(tokens[1:])
 		default:
 			err = fmt.Errorf("command not found: %s", tokens[0])
 		}

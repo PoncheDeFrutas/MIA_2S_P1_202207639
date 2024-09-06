@@ -48,7 +48,7 @@ func ParserRmUSR(tokens []string) (string, error) {
 		return "", err
 	}
 
-	return "", nil
+	return cmd.Print(), nil
 }
 
 func (cmd *RmUSR) commandRmGRP() error {
@@ -85,4 +85,8 @@ func (cmd *RmUSR) commandRmGRP() error {
 	}
 
 	return nil
+}
+
+func (cmd *RmUSR) Print() string {
+	return fmt.Sprintf("User %s removed", cmd.User)
 }
