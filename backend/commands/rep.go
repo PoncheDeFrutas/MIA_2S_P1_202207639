@@ -88,7 +88,7 @@ func (cmd *REP) commandREP() error {
 	case "mbr":
 		return cmd.repMBR()
 	case "disk":
-		//return cmd.repDisk()
+		return cmd.repDisk()
 	case "inode":
 		return cmd.repInode()
 	case "block":
@@ -156,6 +156,81 @@ func (cmd *REP) repMBR() error {
 
 	sb.WriteString("    </TABLE>\n")
 	sb.WriteString("    >];\n")
+	sb.WriteString("}\n")
+
+	return cmd.generateImage(sb.String())
+}
+
+func (cmd *REP) repDisk() error {
+	_, path, err := global.GetMountedPartition(cmd.Id)
+	if err != nil {
+		return err
+	}
+
+	mbr := &structures.MBR{}
+	if err := mbr.ReadMBR(path); err != nil {
+		return err
+	}
+	var sb strings.Builder
+	sb.WriteString("digraph G {\n")
+	sb.WriteString("\tnode [shape=plaintext];\n")
+	sb.WriteString("\tReporteMBR [label=<\n")
+	sb.WriteString("\t<TABLE BORDER=\"1\" CELLBORDER=\"1\" CELLSPACING=\"0\" CELLPADDING=\"4\">\n")
+
+	sb.WriteString("<TR><TD rowspan=\"2\" BGCOLOR=\"#AAAAAA\"><B>MBR</B></TD>\n")
+
+	for _, partition := range mbr.MbrPartition {
+		if partition.PartStart == -1 {
+			continue
+		}
+
+		if partition.PartType == 'P' {
+			sb.WriteString(fmt.Sprintf("<TD rowspan=\"2\">%s<br/>(%.2f%%)</TD>\n",
+				strings.TrimRight(string(partition.PartName[:]), "\x00"), float64(partition.PartSize)/float64(mbr.MbrSize)*100))
+		}
+
+		if partition.PartType == 'E' {
+			sb.WriteString("<TD rowspan=\"2\">\n")
+			sb.WriteString("<TABLE BORDER=\"1\" CELLBORDER=\"1\" CELLSPACING=\"0\" CELLPADDING=\"4\">\n")
+			sb.WriteString("<TR><TD BGCOLOR=\"#CCCCCC\" colspan=\"999\"><B>Extended Partition</B></TD></TR>\n")
+
+			sb.WriteString("<TR>\n")
+
+			ebr, temp := structures.EBR{}, structures.EBR{}
+			if err := ebr.ReadEBR(path, int64(partition.PartStart)); err != nil {
+				return err
+			}
+
+			for {
+				if ebr.PartNext != -1 {
+					temp = ebr
+					sb.WriteString(fmt.Sprintf("<TD>%s<br/>(%.2f%%)</TD>\n",
+						strings.TrimRight(string(ebr.PartName[:]), "\x00"), float64(ebr.PartSize)/float64(mbr.MbrSize)*100))
+				} else {
+					sb.WriteString(fmt.Sprintf("<TD>%s<br/>(%.2f%%)</TD>\n",
+						strings.TrimRight(string("Free space"), "\x00"),
+						float64((partition.PartStart+partition.PartSize)-(temp.PartSize+temp.PartStart))/float64(mbr.MbrSize)*100))
+					break
+				}
+
+				if err := ebr.ReadEBR(path, int64(ebr.PartNext)); err != nil {
+					return err
+				}
+			}
+
+			sb.WriteString("</TR>\n")
+
+			sb.WriteString("</TABLE>\n")
+			sb.WriteString("</TD>\n")
+		}
+	}
+
+	objects := structures.ConvertToObjects(mbr.MbrPartition[:])
+	firstFree := structures.FirstFit(objects, int32(1), int32(153), mbr.MbrSize)
+	sb.WriteString(fmt.Sprintf("<TD rowspan=\"2\">%s<br/>(%.2f%%)</TD>\n",
+		strings.TrimRight(string("free space"), "\x00"), float64(mbr.MbrSize-firstFree)/float64(mbr.MbrSize)*100))
+	sb.WriteString("</TR></TABLE>\n")
+	sb.WriteString(">];\n")
 	sb.WriteString("}\n")
 
 	return cmd.generateImage(sb.String())

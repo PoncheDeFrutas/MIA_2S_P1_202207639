@@ -92,21 +92,15 @@ func (sb *SuperBlock) WriteFile(path string, index int32, filePath []string, con
 	}
 
 	if inode.IType == '0' {
-		for i := int32(0); i < 12; i++ {
-			if inode.IBlock[i] == -1 {
-				continue
+		inodeIndex := sb.findInodeInBlock(path, filePath[0], inode)
+		if inodeIndex != -1 {
+			writtenBytes, err := sb.WriteFile(path, inodeIndex, filePath[1:], content)
+			if err != nil {
+				return 0, err
 			}
-			inodeIndex := sb.GetIndexInode(path, filePath[0], inode.IBlock[i])
 
-			if inodeIndex != -1 {
-				writtenBytes, err := sb.WriteFile(path, inodeIndex, filePath[1:], content)
-				if err != nil {
-					return 0, err
-				}
-
-				if writtenBytes > 0 {
-					return writtenBytes, err
-				}
+			if writtenBytes > 0 {
+				return writtenBytes, err
 			}
 		}
 	} else if inode.IType == '1' {
@@ -122,9 +116,7 @@ func (sb *SuperBlock) writeFileContent(path string, inode *Inode, content string
 	remainingContent := contentBytes
 	totalWritten := 0
 
-	for i := int32(0); i < 12 && len(remainingContent) > 0; i++ {
-		blockIndex := inode.IBlock[i]
-
+	for i, blockIndex := range inode.IBlock[:12] {
 		var fileBlock FileBlock
 
 		bytesToWrite := mini(64, contentLength)
@@ -157,10 +149,73 @@ func (sb *SuperBlock) writeFileContent(path string, inode *Inode, content string
 	}
 
 	if len(remainingContent) > 0 {
-		// TODO add a new pointer block
+		if inode.IBlock[12] == -1 {
+			if err := sb.CreateNewPointerBlock(path, 12, inode); err != nil {
+				return 0, err
+			}
+		}
+		inode.IMTime = float32(time.Now().Unix())
+		if err := inode.WriteInode(path, int64(sb.SInodeStart+index*sb.SInodeSize), int64(sb.SInodeStart+(index+1)*sb.SInodeSize)); err != nil {
+			return 0, err
+		}
+
+		writtenBytes, err := sb.writePointerContent(path, 12, 1, string(remainingContent))
+		if err != nil {
+			return 0, err
+		}
+		if writtenBytes > 0 {
+			return 10, nil
+		}
 	}
 
 	return totalWritten, nil
+}
+
+func (sb *SuperBlock) writePointerContent(path string, indexBlock, level int32, content string) (int, error) {
+	pointerBlock := &PointerBlock{}
+	if err := pointerBlock.ReadPointerBlock(path, int64(sb.SBlockStart+indexBlock*sb.SBlockSize)); err != nil {
+		return 0, err
+	}
+
+	if level == 1 {
+		contentBytes := []byte(content)
+		contentLength := len(contentBytes)
+		remainingContent := contentBytes
+		totalWritten := 0
+
+		for i, blockIndex := range pointerBlock.PPointers {
+			var fileBlock FileBlock
+
+			bytesToWrite := mini(64, contentLength)
+			copy(fileBlock.BContent[:], remainingContent[:bytesToWrite])
+
+			if blockIndex == -1 {
+				if err := fileBlock.WriteFileBlock(path, int64(sb.SFirstBlo), int64(sb.SFirstBlo+sb.SBlockSize)); err != nil {
+					return 0, err
+				}
+
+				pointerBlock.PPointers[i] = sb.SBlocksCount
+
+				if err := sb.UpdateBitmapBlock(path); err != nil {
+					return 0, err
+				}
+
+			} else {
+				if err := fileBlock.WriteFileBlock(path, int64(sb.SBlockStart+blockIndex*sb.SBlockSize), int64(sb.SBlockStart+(blockIndex+1)*sb.SBlockSize)); err != nil {
+					return 0, err
+				}
+			}
+			if err := pointerBlock.WritePointerBlock(path, int64(sb.SBlockStart+indexBlock*sb.SBlockSize),
+				int64(sb.SBlockStart+(indexBlock+1)*sb.SBlockSize)); err != nil {
+				return 0, err
+			}
+
+			remainingContent = remainingContent[bytesToWrite:]
+			contentLength = len(remainingContent)
+			totalWritten += bytesToWrite
+		}
+	}
+	return 0, nil
 }
 
 func (sb *SuperBlock) CreatePath(path string, index int32, filePath []string, root, isFile bool) error {

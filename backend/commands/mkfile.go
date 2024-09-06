@@ -6,6 +6,8 @@ import (
 	"backend/utils"
 	"encoding/binary"
 	"fmt"
+	"io/ioutil"
+	"log"
 	"regexp"
 	"strconv"
 	"strings"
@@ -113,10 +115,15 @@ func (cmd *MkFile) commandMkFile() error {
 		return err
 	}
 
-	content := sb.GetFile(partitionPath, int32(0), result)
-
 	if cmd.Cont != "" {
-		if _, err := sb.WriteFile(partitionPath, int32(0), result, content); err != nil {
+		content, err := ioutil.ReadFile(cmd.Path)
+		if err != nil {
+			log.Fatalf("Error al leer el archivo: %v", err)
+		}
+
+		// Convertir el contenido a un string
+		fileContent := string(content)
+		if _, err := sb.WriteFile(partitionPath, int32(0), result, fileContent); err != nil {
 			return err
 		}
 	}
