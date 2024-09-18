@@ -85,6 +85,7 @@ func (sb *SuperBlock) getIndirectBlockContent(path string, blockIndex int32, lev
 	return content.String()
 }
 
+// WriteFile writes a file in the filesystem
 func (sb *SuperBlock) WriteFile(path string, index int32, filePath []string, content string) (int, error) {
 	inode := &Inode{}
 	if err := inode.ReadInode(path, int64(sb.SInodeStart+index*sb.SInodeSize)); err != nil {
@@ -111,150 +112,110 @@ func (sb *SuperBlock) WriteFile(path string, index int32, filePath []string, con
 }
 
 func (sb *SuperBlock) writeFileContent(path string, inode *Inode, content string, index int32) (int, error) {
-	contentBytes := []byte(content)
-	contentLength := len(contentBytes)
-	remainingContent := contentBytes
-	totalWritten := 0
-
+	inode.IMTime = float32(time.Now().Unix())
+	var err error
 	for i, blockIndex := range inode.IBlock[:12] {
-		var fileBlock FileBlock
-
-		bytesToWrite := mini(64, contentLength)
-		copy(fileBlock.BContent[:], remainingContent[:bytesToWrite])
-
+		if content == "" {
+			break
+		}
 		if blockIndex == -1 {
-			if err := fileBlock.WriteFileBlock(path, int64(sb.SFirstBlo), int64(sb.SFirstBlo+sb.SBlockSize)); err != nil {
-				return 0, err
-			}
-
 			inode.IBlock[i] = sb.SBlocksCount
+			inode.IMTime = float32(time.Now().Unix())
 
-			if err := sb.UpdateBitmapBlock(path); err != nil {
+			content, err = sb.CreateFileBlock(path, content)
+			if err != nil {
 				return 0, err
 			}
-
 		} else {
-			if err := fileBlock.WriteFileBlock(path, int64(sb.SBlockStart+blockIndex*sb.SBlockSize), int64(sb.SBlockStart+(blockIndex+1)*sb.SBlockSize)); err != nil {
+			content, err = sb.WriteFileBlock(path, blockIndex, content)
+			if err != nil {
 				return 0, err
 			}
 		}
-		inode.IMTime = float32(time.Now().Unix())
-		if err := inode.WriteInode(path, int64(sb.SInodeStart+index*sb.SInodeSize), int64(sb.SInodeStart+(index+1)*sb.SInodeSize)); err != nil {
-			return 0, err
-		}
-
-		remainingContent = remainingContent[bytesToWrite:]
-		contentLength = len(remainingContent)
-		totalWritten += bytesToWrite
 	}
 
-	if len(remainingContent) > 0 {
-		if inode.IBlock[12] == -1 {
-			/*if err := sb.CreateNewPointerBlock(path, 12, inode); err != nil {
+	if content == "" {
+		return 0, nil
+	}
+
+	for i, blockIndex := range inode.IBlock[12:] {
+		if content == "" {
+			break
+		}
+		if blockIndex == -1 {
+			inode.IBlock[i+12] = sb.SBlocksCount
+
+			if err := sb.CreatePointerBlock(path, i); err != nil {
 				return 0, err
-			}*/
-		}
-		inode.IMTime = float32(time.Now().Unix())
-		if err := inode.WriteInode(path, int64(sb.SInodeStart+index*sb.SInodeSize), int64(sb.SInodeStart+(index+1)*sb.SInodeSize)); err != nil {
-			return 0, err
-		}
+			}
 
-		writtenBytes, err := sb.writePointerContent(path, 12, 1, string(remainingContent))
-		if err != nil {
-			return 0, err
-		}
-		if writtenBytes > 0 {
-			return 10, nil
+			content, err = sb.CreateFileBlock(path, content)
+			if err != nil {
+				return 0, err
+			}
+		} else {
+			content, err = sb.writePointerContent(path, blockIndex, int32(i), content)
+			if err != nil {
+				return 0, err
+			} else if len(content) > 0 {
+				continue
+			}
 		}
 	}
 
-	return totalWritten, nil
-}
-
-func (sb *SuperBlock) writePointerContent(path string, indexBlock, level int32, content string) (int, error) {
-	pointerBlock := &PointerBlock{}
-	if err := pointerBlock.ReadPointerBlock(path, int64(sb.SBlockStart+indexBlock*sb.SBlockSize)); err != nil {
+	if err := inode.WriteInode(path, int64(sb.SInodeStart+index*sb.SInodeSize),
+		int64(sb.SInodeStart+(index+1)*sb.SInodeSize)); err != nil {
 		return 0, err
 	}
 
-	if level == 1 {
-		contentBytes := []byte(content)
-		contentLength := len(contentBytes)
-		remainingContent := contentBytes
-		totalWritten := 0
-
-		for i, blockIndex := range pointerBlock.PPointers {
-			var fileBlock FileBlock
-
-			bytesToWrite := mini(64, contentLength)
-			copy(fileBlock.BContent[:], remainingContent[:bytesToWrite])
-
-			if blockIndex == -1 {
-				if err := fileBlock.WriteFileBlock(path, int64(sb.SFirstBlo), int64(sb.SFirstBlo+sb.SBlockSize)); err != nil {
-					return 0, err
-				}
-
-				pointerBlock.PPointers[i] = sb.SBlocksCount
-
-				if err := sb.UpdateBitmapBlock(path); err != nil {
-					return 0, err
-				}
-
-			} else {
-				if err := fileBlock.WriteFileBlock(path, int64(sb.SBlockStart+blockIndex*sb.SBlockSize), int64(sb.SBlockStart+(blockIndex+1)*sb.SBlockSize)); err != nil {
-					return 0, err
-				}
-			}
-			if err := pointerBlock.WritePointerBlock(path, int64(sb.SBlockStart+indexBlock*sb.SBlockSize),
-				int64(sb.SBlockStart+(indexBlock+1)*sb.SBlockSize)); err != nil {
-				return 0, err
-			}
-
-			remainingContent = remainingContent[bytesToWrite:]
-			contentLength = len(remainingContent)
-			totalWritten += bytesToWrite
-		}
-	}
 	return 0, nil
 }
 
-func (sb *SuperBlock) findInodeInBlock(path, part string, inode *Inode) int32 {
-	for _, block := range inode.IBlock[:12] {
-		if block == -1 {
-			continue
+func (sb *SuperBlock) writePointerContent(path string, blockIndex, level int32, content string) (string, error) {
+	block := &PointerBlock{}
+	blockPath := int64(sb.SBlockStart + blockIndex*sb.SBlockSize)
+	var err error
+	err = block.ReadPointerBlock(path, blockPath)
+	if err != nil {
+		return "", err
+	}
+
+	for i, pointer := range block.PPointers {
+		if content == "" {
+			break
 		}
+		if pointer == -1 {
+			block.PPointers[i] = sb.SBlocksCount
+			if err := block.WritePointerBlock(path, blockPath, blockPath+int64(sb.SBlockSize)); err != nil {
+				return "", err
+			}
 
-		blockIndex := sb.GetIndexInode(path, part, block)
-		if blockIndex != -1 {
-			return blockIndex
+			if level != 0 {
+				if err := sb.CreatePointerBlock(path, int(level-1)); err != nil {
+					return "", err
+				}
+			}
+
+			content, err = sb.CreateFileBlock(path, content)
+			if err != nil {
+				return "", err
+			}
+		} else {
+			if level == 0 {
+				content, err = sb.WriteFileBlock(path, pointer, content)
+				if err != nil {
+					return "", err
+				}
+			} else {
+				content, err = sb.writePointerContent(path, pointer, level-1, content)
+				if err != nil {
+					return "", err
+				}
+			}
 		}
 	}
 
-	return -1
-}
-
-func (sb *SuperBlock) GetIndexInode(path, file string, index int32) int32 {
-	block := &FolderBlock{}
-	blockPath := int64(sb.SBlockStart + index*sb.SBlockSize)
-
-	if err := block.ReadFolderBlock(path, blockPath); err != nil {
-		return -1
-	}
-
-	for _, entry := range block.BContent[2:] {
-		name := strings.TrimRight(string(entry.BName[:]), "\x00")
-		if name == file {
-			return entry.BInode
-		}
-	}
-	return -1
-}
-
-func mini(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
+	return content, nil
 }
 
 // CreateInode creates a new inode in the filesystem
@@ -309,23 +270,42 @@ func (sb *SuperBlock) CreateFolderBlock(path, name string, indexInode int32) err
 }
 
 // CreateFileBlock creates a new file block in the filesystem
-func (sb *SuperBlock) CreateFileBlock(path string, content string) error {
+func (sb *SuperBlock) CreateFileBlock(path string, content string) (string, error) {
 	if sb.SFreeBlockCount == 0 {
-		return fmt.Errorf("no free blocks")
+		return "", fmt.Errorf("no free blocks")
 	}
 
 	newBlock := &FileBlock{}
-	copy(newBlock.BContent[:], content)
+	toWrite := min(len(content), 64)
+	copy(newBlock.BContent[:], content[:toWrite])
 
 	if err := newBlock.WriteFileBlock(path, int64(sb.SFirstBlo), int64(sb.SFirstBlo+sb.SBlockSize)); err != nil {
-		return err
+		return "", err
 	}
 
 	if err := sb.UpdateBitmapBlock(path); err != nil {
-		return err
+		return "", err
 	}
 
-	return nil
+	return content[toWrite:], nil
+}
+
+func (sb *SuperBlock) WriteFileBlock(path string, index int32, content string) (string, error) {
+	block := &FileBlock{}
+	blockPath := int64(sb.SBlockStart + index*sb.SBlockSize)
+
+	if err := block.ReadFileBlock(path, blockPath); err != nil {
+		return "", err
+	}
+
+	toWrite := min(len(content), 64)
+	copy(block.BContent[:], content[:toWrite])
+
+	if err := block.WriteFileBlock(path, blockPath, blockPath+int64(sb.SBlockSize)); err != nil {
+		return "", err
+	}
+
+	return content[toWrite:], nil
 }
 
 // CreatePointerBlock creates a new pointer block in the filesystem
@@ -368,6 +348,20 @@ func (sb *SuperBlock) CreateNewInode(path string, filePath []string, indexInode 
 
 	if len(filePath) == 1 {
 		return sb.CreatePath(path, filePath[0], inode, isFile, indexInode)
+	}
+
+	newIndexInode := sb.findInodeInBlock(path, filePath[0], inode)
+
+	if newIndexInode != -1 {
+		return sb.CreateNewInode(path, filePath[1:], newIndexInode, isFile, root)
+	}
+
+	if root {
+		if err := sb.CreatePath(path, filePath[0], inode, false, indexInode); err != nil {
+			return err
+		}
+		newIndexInode := sb.findInodeInBlock(path, filePath[0], inode)
+		return sb.CreateNewInode(path, filePath[1:], newIndexInode, isFile, root)
 	}
 
 	return nil
@@ -470,34 +464,21 @@ func (sb *SuperBlock) addContentToPointerBlock(path, name string, blockIndex, in
 
 	for i, pointer := range block.PPointers {
 		if pointer == -1 {
-			if level == 0 {
-				block.PPointers[i] = sb.SBlocksCount
-				if err := block.WritePointerBlock(path, int64(sb.SBlockStart+blockIndex*sb.SBlockSize),
-					int64(sb.SBlockStart+(blockIndex+1)*sb.SBlockSize)); err != nil {
-					return false, err
-				}
+			block.PPointers[i] = sb.SBlocksCount
 
-				if err := sb.CreateFolderBlock(path, name, sb.SInodesCount); err != nil {
-					return false, err
-				}
-				return true, nil
-			} else {
-				block.PPointers[i] = sb.SBlocksCount
-				if err := block.WritePointerBlock(path, int64(sb.SBlockStart+blockIndex*sb.SBlockSize),
-					int64(sb.SBlockStart+(blockIndex+1)*sb.SBlockSize)); err != nil {
-					return false, err
-				}
-
+			if err := block.WritePointerBlock(path, int64(sb.SBlockStart+blockIndex*sb.SBlockSize),
+				int64(sb.SBlockStart+(blockIndex+1)*sb.SBlockSize)); err != nil {
+				return false, err
+			}
+			if level != 0 {
 				if err := sb.CreatePointerBlock(path, int(level-1)); err != nil {
 					return false, err
 				}
-
-				if err := sb.CreateFolderBlock(path, name, sb.SInodesCount); err != nil {
-					return false, err
-				}
-
-				return true, nil
 			}
+			if err := sb.CreateFolderBlock(path, name, sb.SInodesCount); err != nil {
+				return false, err
+			}
+			return true, nil
 		}
 
 		if level == 0 {
@@ -520,4 +501,80 @@ func (sb *SuperBlock) addContentToPointerBlock(path, name string, blockIndex, in
 	}
 
 	return false, nil
+}
+
+// GetIndexInode returns the index of an inode in a block
+func (sb *SuperBlock) GetIndexInode(path, file string, index int32) int32 {
+	block := &FolderBlock{}
+	blockPath := int64(sb.SBlockStart + index*sb.SBlockSize)
+
+	if err := block.ReadFolderBlock(path, blockPath); err != nil {
+		return -1
+	}
+
+	for _, entry := range block.BContent[2:] {
+		name := strings.TrimRight(string(entry.BName[:]), "\x00")
+		if name == file {
+			return entry.BInode
+		}
+	}
+	return -1
+}
+
+// findInodeInBlock returns the index of an inode in a block
+func (sb *SuperBlock) findInodeInBlock(path, part string, inode *Inode) int32 {
+	for _, block := range inode.IBlock[:12] {
+		if block == -1 {
+			return -1
+		}
+
+		blockIndex := sb.GetIndexInode(path, part, block)
+		if blockIndex != -1 {
+			return blockIndex
+		}
+	}
+
+	for i, block := range inode.IBlock[12:] {
+		if block == -1 {
+			return -1
+		}
+
+		blockIndex := sb.finInodeInPointerBlock(path, part, block, int32(i))
+		if blockIndex != -1 {
+			return blockIndex
+		}
+
+	}
+
+	return -1
+}
+
+// finInodeInPointerBlock returns the index of an inode in a pointer block
+func (sb *SuperBlock) finInodeInPointerBlock(path, part string, blockIndex, level int32) int32 {
+	block := &PointerBlock{}
+	blockPath := int64(sb.SBlockStart + blockIndex*sb.SBlockSize)
+
+	if err := block.ReadPointerBlock(path, blockPath); err != nil {
+		return -1
+	}
+
+	for _, pointer := range block.PPointers {
+		if pointer == -1 {
+			return -1
+		}
+
+		if level == 0 {
+			blockIndex := sb.GetIndexInode(path, part, pointer)
+			if blockIndex != -1 {
+				return blockIndex
+			}
+		} else {
+			blockIndex := sb.finInodeInPointerBlock(path, part, pointer, level-1)
+			if blockIndex != -1 {
+				return blockIndex
+			}
+		}
+	}
+
+	return -1
 }
