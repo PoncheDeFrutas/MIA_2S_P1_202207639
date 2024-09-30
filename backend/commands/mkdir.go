@@ -19,7 +19,7 @@ func ParserMkDIR(tokens []string) (string, error) {
 	cmd := &MkDIR{}
 
 	args := strings.Join(tokens, " ")
-	re := regexp.MustCompile(`-path="[^"]+"|-path=\S+|-p`)
+	re := regexp.MustCompile(`(?i)-path(?-i)="[^"]+"|(?i)-path(?-i)=\S+|(?i)-p`)
 	matches := re.FindAllString(args, -1)
 
 	for _, match := range matches {

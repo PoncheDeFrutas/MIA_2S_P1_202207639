@@ -237,15 +237,16 @@ func ClearData() {
 	Groups = make(map[string][]Group)
 }
 
-func LogUserOut() error {
+func LogUserOut() (string, error) {
 	if LoggedUser == "" {
-		return fmt.Errorf("no user logged")
+		return "", fmt.Errorf("no user logged")
 	}
 
 	ClearData()
+	temp := LoggedUser
 	LoggedUser = ""
 	LoggedPartition = ""
-	return nil
+	return temp, nil
 }
 
 func IsUserLogged() bool {

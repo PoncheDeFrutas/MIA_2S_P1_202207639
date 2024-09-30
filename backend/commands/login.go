@@ -19,7 +19,7 @@ func ParserLogin(tokens []string) (string, error) {
 	cmd := &Login{}
 
 	args := strings.Join(tokens, " ")
-	re := regexp.MustCompile(`-user="[^"]+"|-user=\S+|-pass="[^"]+"|-pass=\S+|-id="[^"]+"|-id=\S+`)
+	re := regexp.MustCompile(`(?i)-user(?-i)="[^"]+"|(?i)-user(?-i)=\S+|(?i)-pass(?-i)="[^"]+"|(?i)-pass(?-i)=\S+|(?i)-id(?-i)="[^"]+"|(?i)-id(?-i)=\S+`)
 	matches := re.FindAllString(args, -1)
 
 	for _, match := range matches {

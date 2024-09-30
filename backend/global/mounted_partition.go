@@ -14,7 +14,7 @@ var (
 func GetMountedPartition(id string) (*structures.Partition, string, error) {
 	path := MountedPartitions[id]
 	if path == "" {
-		return nil, "", errors.New("partition not mounted")
+		return nil, "", errors.New("partition not mounted with id: " + id)
 	}
 
 	mbr := &structures.MBR{}
@@ -29,4 +29,14 @@ func GetMountedPartition(id string) (*structures.Partition, string, error) {
 	}
 
 	return partition, path, nil
+}
+
+func PrintMountedPartitions() string {
+	result := "Mounted Partitions:\n"
+
+	for id, path := range MountedPartitions {
+		result += id + " -> " + path + "\n"
+	}
+
+	return result
 }

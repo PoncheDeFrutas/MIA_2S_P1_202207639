@@ -19,7 +19,7 @@ func ParserChGRP(tokens []string) (string, error) {
 	cmd := &ChGRP{}
 
 	args := strings.Join(tokens, " ")
-	re := regexp.MustCompile(`-user="[^"]+"|-user=\S+|-grp="[^"]+"|-grp=\S+`)
+	re := regexp.MustCompile(`(?i)-user(?-i)="[^"]+"|(?i)-user(?-i)=\S+|(?i)-grp(?-i)="[^"]+"|(?i)-grp(?-i)=\S+`)
 	matches := re.FindAllString(args, -1)
 
 	for _, match := range matches {

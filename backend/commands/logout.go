@@ -5,8 +5,9 @@ import (
 )
 
 func ParserLogout(tokens []string) (string, error) {
-	if err := global.LogUserOut(); err != nil {
+	if text, err := global.LogUserOut(); err != nil {
 		return "", err
+	} else {
+		return "logout" + text, nil
 	}
-	return "", nil
 }

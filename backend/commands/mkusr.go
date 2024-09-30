@@ -20,7 +20,7 @@ func ParserMkUSR(tokens []string) (string, error) {
 	cmd := &MkUSR{}
 
 	args := strings.Join(tokens, " ")
-	re := regexp.MustCompile(`-user="[^"]+"|-user=\S+|-pass="[^"]+"|-pass=\S+|-grp="[^"]+"|-grp=\S+`)
+	re := regexp.MustCompile(`(?i)-user(?-i)="[^"]+"|(?i)-user(?-i)=\S+|(?i)-pass(?-i)="[^"]+"|(?i)-pass(?-i)=\S+|(?i)-grp(?-i)="[^"]+"|(?i)-grp(?-i)=\S+`)
 	matches := re.FindAllString(args, -1)
 
 	for _, match := range matches {

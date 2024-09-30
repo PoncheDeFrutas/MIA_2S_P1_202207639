@@ -15,13 +15,13 @@ func ParseToken(token string) (string, string, error) {
 
 func ConvertToBytes(size int, unit string) (int, error) {
 	switch unit {
-	case "B":
+	case "B", "b":
 		return size, nil
-	case "K":
+	case "K", "k":
 		return size * 1024, nil
-	case "M":
+	case "M", "m":
 		return size * 1024 * 1024, nil
-	case "G":
+	case "G", "g":
 		return size * 1024 * 1024 * 1024, nil
 	default:
 		return 0, fmt.Errorf("invalid unit: %s", unit)

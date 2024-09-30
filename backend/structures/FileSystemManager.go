@@ -134,16 +134,14 @@ func (sb *SuperBlock) writeFileContent(path string, inode *Inode, content string
 		}
 	}
 
-	if content == "" {
-		return 0, nil
-	}
-
 	for i, blockIndex := range inode.IBlock[12:] {
 		if content == "" {
 			break
 		}
+
 		if blockIndex == -1 {
-			inode.IBlock[i+12] = sb.SBlocksCount
+			inode.IBlock[i] = sb.SBlocksCount
+			inode.IMTime = float32(time.Now().Unix())
 
 			if err := sb.CreatePointerBlock(path, i); err != nil {
 				return 0, err
@@ -154,12 +152,7 @@ func (sb *SuperBlock) writeFileContent(path string, inode *Inode, content string
 				return 0, err
 			}
 		} else {
-			content, err = sb.writePointerContent(path, blockIndex, int32(i), content)
-			if err != nil {
-				return 0, err
-			} else if len(content) > 0 {
-				continue
-			}
+
 		}
 	}
 

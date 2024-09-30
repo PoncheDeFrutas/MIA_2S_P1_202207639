@@ -17,7 +17,7 @@ func ParserCat(tokens []string) (string, error) {
 	cmd := &Cat{}
 
 	args := strings.Join(tokens, " ")
-	re := regexp.MustCompile(`-file\d+="[^"]+"|-file\d+=\S+`)
+	re := regexp.MustCompile(`(?i)-file\d+(?-i)="[^"]+"|(?i)-file\d+(?-i)=\S+`)
 	matches := re.FindAllString(args, -1)
 
 	for _, match := range matches {

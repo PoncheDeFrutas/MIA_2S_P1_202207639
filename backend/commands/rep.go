@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/goccy/go-graphviz"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -23,7 +24,7 @@ func ParserREP(tokens []string) (string, error) {
 	cmd := &REP{}
 
 	args := strings.Join(tokens, " ")
-	re := regexp.MustCompile(`(?i)-name="[^"]+"|-name=\S+|-path="[^"]+"|-path=\S+|-id=\S+|-path_file_ls="[^"]+"|-path_file_ls=\S+`)
+	re := regexp.MustCompile(`(?i)-name(?-i)="[^"]+"|(?i)-name(?-i)=\S+|(?i)-path(?-i)="[^"]+"|(?i)-path(?-i)=\S+|(?i)-id(?-i)=\S+|(?i)-path_file_ls(?-i)="[^"]+"|(?i)-path_file_ls(?-i)=\S+`)
 	matches := re.FindAllString(args, -1)
 
 	for _, match := range matches {
@@ -77,10 +78,20 @@ func ParserREP(tokens []string) (string, error) {
 	}
 
 	if err := cmd.commandREP(); err != nil {
-		return "", err
+		return fmt.Sprintf("Name: %s\nPath: %s\nID: %s\nPathFileLs: %s",
+			cmd.Name,
+			cmd.Path,
+			cmd.Id,
+			cmd.PathFileLs,
+		), err
 	}
 
-	return "", nil
+	return fmt.Sprintf("Name: %s\nPath: %s\nID: %s\nPathFileLs: %s",
+		cmd.Name,
+		cmd.Path,
+		cmd.Id,
+		cmd.PathFileLs,
+	), nil
 }
 
 func (cmd *REP) commandREP() error {
@@ -535,6 +546,12 @@ func (cmd *REP) repFile() error {
 	}
 
 	filePath := strings.Split(cmd.PathFileLs, "/")
+	var filteredFilePath []string
+	for _, part := range filePath {
+		if part != "" {
+			filteredFilePath = append(filteredFilePath, part)
+		}
+	}
 	fileName := filePath[len(filePath)-1]
 
 	sb := &structures.SuperBlock{}
@@ -542,20 +559,66 @@ func (cmd *REP) repFile() error {
 		return err
 	}
 
-	inodeIndex := sb.GetIndexInode(path, fileName, 0)
-	if inodeIndex == -1 {
-		return fmt.Errorf("file not found: %s", fileName)
-	}
-
-	content := sb.GetFile(path, inodeIndex, filePath)
+	content := sb.GetFile(path, 0, filteredFilePath)
 	if content == "" {
 		return fmt.Errorf("error reading file: %s", fileName)
 	}
 
-	return cmd.generateTxt(content)
+	if strings.HasSuffix(cmd.Path, ".txt") || strings.HasSuffix(cmd.Path, ".txt\"") {
+		return cmd.generateImage(content)
+	} else {
+		dotContent := generateDotContent(content)
+		return cmd.generateImage(dotContent)
+	}
+}
+
+func generateDotContent(content string) string {
+	return "digraph G {\n" +
+		"    node [shape=box];\n" +
+		"    \"Contenido\" [label=\"" + escapeDotString(content) + "\"];\n" +
+		"}"
+}
+
+func escapeDotString(s string) string {
+	return strings.ReplaceAll(strings.ReplaceAll(s, "\"", "\\\""), "\n", "\\n")
+}
+
+func (cmd *REP) repLS() error {
+	/*partition, path, err := global.GetMountedPartition(cmd.Id)
+	if err != nil {
+		return err
+	}
+
+	superBlock := &structures.SuperBlock{}
+	if err := superBlock.ReadSuperBlock(path, int64(partition.PartStart)); err != nil {
+		return err
+	}
+
+	filePath := strings.Split(cmd.PathFileLs, "/")
+	var filteredFilePath []string
+	for _, part := range filePath {
+		if part != "" {
+			filteredFilePath = append(filteredFilePath, part)
+		}
+	}
+	fileName := filePath[len(filePath)-1]
+
+	sb := &structures.SuperBlock{}
+	if err := sb.ReadSuperBlock(path, int64(partition.PartStart)); err != nil {
+		return err
+	}
+	*/
+	return nil //cmd.generateImage(content)
 }
 
 func (cmd *REP) generateImage(content string) error {
+	cmd.Path = strings.Trim(cmd.Path, "\" ")
+	if strings.HasSuffix(cmd.Path, ".txt") {
+		return cmd.generateTxt(content)
+	} else if strings.HasSuffix(cmd.Path, ".pdf") {
+		return cmd.generatePdf(content)
+	}
+
 	// Parse DOT content
 	graph, err := graphviz.ParseBytes([]byte(content))
 	if err != nil {
@@ -592,7 +655,8 @@ func (cmd *REP) generateImage(content string) error {
 		}
 	}()
 
-	ext := strings.ToLower(filepath.Ext(cmd.Path))
+	// Clean and process the file extension
+	ext := strings.Trim(strings.ToLower(filepath.Ext(cmd.Path)), "\" ")
 	var format graphviz.Format
 
 	switch ext {
@@ -616,7 +680,9 @@ func (cmd *REP) generateImage(content string) error {
 }
 
 func (cmd *REP) generateTxt(content string) error {
-	ext := strings.ToLower(filepath.Ext(cmd.Path))
+	cmd.Path = strings.Trim(cmd.Path, "\" ")
+
+	ext := strings.Trim(strings.ToLower(filepath.Ext(cmd.Path)), "\" ")
 	if ext != ".txt" {
 		return fmt.Errorf("unsupported file format: %s, only .txt files are allowed", ext)
 	}
@@ -642,5 +708,26 @@ func (cmd *REP) generateTxt(content string) error {
 
 	fmt.Printf("Text generated successfully: %s\n", cmd.Path)
 
+	return nil
+}
+
+func (cmd *REP) generatePdf(content string) error {
+	cmd.Path = strings.Trim(cmd.Path, "\" ")
+
+	dotFilePath := strings.TrimSuffix(cmd.Path, filepath.Ext(cmd.Path)) + ".dot"
+	err := os.WriteFile(dotFilePath, []byte(content), 0644)
+	if err != nil {
+		return fmt.Errorf("error writing DOT file: %w", err)
+	}
+	defer os.Remove(dotFilePath)
+
+	pdfFilePath := strings.TrimSuffix(cmd.Path, filepath.Ext(cmd.Path)) + ".pdf"
+	cmdToRun := exec.Command("dot", "-Tpdf", dotFilePath, "-o", pdfFilePath)
+
+	if err := cmdToRun.Run(); err != nil {
+		return fmt.Errorf("error generating PDF: %w", err)
+	}
+
+	fmt.Printf("PDF generated successfully: %s\n", pdfFilePath)
 	return nil
 }

@@ -20,7 +20,7 @@ export class EditorComponent extends React.Component<EditorComponentProps> {
             <div className="editor-container">
                 <Editor
                     theme="vs-dark"
-                    language="typescript"
+                    language="Markdown"
                     value={content}
                     options={{
                         minimap: { enabled: false },

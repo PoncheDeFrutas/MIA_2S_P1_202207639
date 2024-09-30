@@ -2,27 +2,26 @@ package analyzer
 
 import (
 	"backend/commands"
+	"backend/global"
 	"fmt"
 	"strings"
 )
 
 func Analyzer(input string) string {
-	var (
-		results []string
-		errs    []string
-	)
+	var outputLines []string
 
 	lines := strings.Split(input, "\n")
 
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		if line == "" || strings.HasPrefix(line, "#") {
+			outputLines = append(outputLines, line)
 			continue
 		}
 
 		tokens := strings.Fields(line)
 		if len(tokens) == 0 {
-			errs = append(errs, "empty line")
+			outputLines = append(outputLines, "Error: empty line")
 			continue
 		}
 
@@ -65,28 +64,18 @@ func Analyzer(input string) string {
 		case "cat":
 			result, err = commands.ParserCat(tokens[1:])
 		default:
-			err = fmt.Errorf("command not found: %s", tokens[0])
+			err = fmt.Errorf("Error: command not found: %s", tokens[0])
 		}
 
 		if err != nil {
-			errs = append(errs, err.Error())
+			textError := fmt.Sprintf("--Error: %s", err.Error())
+			outputLines = append(outputLines, textError)
 		} else {
-			results = append(results, result)
+			outputLines = append(outputLines, result)
 		}
 	}
 
-	var output strings.Builder
-	if len(results) > 0 {
-		output.WriteString("Results:\n")
-		output.WriteString(strings.Join(results, "\n"))
-		output.WriteString("\n")
-	}
+	outputLines = append(outputLines, global.PrintMountedPartitions())
 
-	if len(errs) > 0 {
-		output.WriteString("Errors:\n")
-		output.WriteString(strings.Join(errs, "\n"))
-		output.WriteString("\n")
-	}
-
-	return output.String()
+	return strings.Join(outputLines, "\n")
 }

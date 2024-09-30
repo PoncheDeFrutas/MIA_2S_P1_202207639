@@ -22,7 +22,7 @@ func ParserFDisk(tokens []string) (string, error) {
 	cmd := &FDisk{}
 
 	args := strings.Join(tokens, " ")
-	re := regexp.MustCompile(`-size=\d+|-unit=[bBkKmM]|-fit=[bBfF]{2}|-path="[^"]+"|-path=\S+|-type=[pPeElL]|-name="[^"]+"|-name=\S+`)
+	re := regexp.MustCompile(`(?i)-size(?-i)=\d+|(?i)-unit(?-i)=[bBkKmM]|(?i)-fit(?-i)=[bBfF]{2}|(?i)-path(?-i)="[^"]+"|(?i)-path(?-i)=\S+|(?i)-type(?-i)=[pPeElL]|(?i)-name(?-i)="[^"]+"|(?i)-name(?-i)=\S+`)
 	matches := re.FindAllString(args, -1)
 
 	for _, match := range matches {
@@ -100,7 +100,8 @@ func ParserFDisk(tokens []string) (string, error) {
 	}
 
 	if err := cmd.commandFDisk(); err != nil {
-		return "", err
+		return "", fmt.Errorf("commandFDisk failed: %w (cmd details: Size=%d, Unit=%s, Path=%s, Type=%s, Fit=%s, Name=%s)",
+			err, cmd.Size, cmd.Unit, cmd.Path, cmd.Type, cmd.Fit, cmd.Name)
 	}
 
 	mbr := structures.MBR{}

@@ -18,7 +18,7 @@ func ParserRmGRP(tokens []string) (string, error) {
 	cmd := &RmGRP{}
 
 	args := strings.Join(tokens, " ")
-	re := regexp.MustCompile(`-name="[^"]+"|-name=\S+`)
+	re := regexp.MustCompile(`(?i)-name(?-i)="[^"]+"|(?i)-name(?-i)=\S+`)
 	matches := re.FindAllString(args, -1)
 
 	for _, match := range matches {

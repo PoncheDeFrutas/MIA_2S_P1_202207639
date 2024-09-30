@@ -19,7 +19,7 @@ func ParserMkFs(tokens []string) (string, error) {
 	cmd := &MkFs{}
 
 	args := strings.Join(tokens, " ")
-	re := regexp.MustCompile(`-id=\S+|-type=\S+`)
+	re := regexp.MustCompile(`(?i)-id(?-i)=\S+|(?i)-type(?-i)=\S+`)
 	matches := re.FindAllString(args, -1)
 
 	for _, match := range matches {

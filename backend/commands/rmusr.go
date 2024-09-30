@@ -18,7 +18,7 @@ func ParserRmUSR(tokens []string) (string, error) {
 	cmd := &RmUSR{}
 
 	args := strings.Join(tokens, " ")
-	re := regexp.MustCompile(`-user="[^"]+"|-user=\S+`)
+	re := regexp.MustCompile(`(?i)-user(?-i)="[^"]+"|(?i)-user(?-i)=\S+`)
 	matches := re.FindAllString(args, -1)
 
 	for _, match := range matches {

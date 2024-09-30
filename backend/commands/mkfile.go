@@ -24,7 +24,7 @@ func ParserMkFile(tokens []string) (string, error) {
 	cmd := &MkFile{}
 
 	args := strings.Join(tokens, " ")
-	re := regexp.MustCompile(`-path="[^"]+"|-path=\S+|-r|-size=\d+|-cont="[^"]+"|-cont=\S+`)
+	re := regexp.MustCompile(`(?i)-path(?-i)="[^"]+"|(?i)-path(?-i)=\S+|(?i)-r|(?i)-size(?-i)=\d+|(?i)-cont(?-i)="[^"]+"|(?i)-cont(?-i)=\S+`)
 	matches := re.FindAllString(args, -1)
 
 	for _, match := range matches {
@@ -106,26 +106,25 @@ func (cmd *MkFile) commandMkFile() error {
 		return err
 	}
 
-	if err := sb.WriteSuperBlock(partitionPath, int64(mountedPartition.PartStart), int64(mountedPartition.PartStart+int32(binary.Size(sb)))); err != nil {
-		return err
-	}
-
 	cont := generateNumberString(cmd.Size)
 	if _, err := sb.WriteFile(partitionPath, int32(0), result, cont); err != nil {
 		return err
 	}
 
 	if cmd.Cont != "" {
-		content, err := ioutil.ReadFile(cmd.Path)
+		content, err := ioutil.ReadFile(cmd.Cont)
 		if err != nil {
 			log.Fatalf("Error al leer el archivo: %v", err)
 		}
 
-		// Convertir el contenido a un string
 		fileContent := string(content)
 		if _, err := sb.WriteFile(partitionPath, int32(0), result, fileContent); err != nil {
 			return err
 		}
+	}
+
+	if err := sb.WriteSuperBlock(partitionPath, int64(mountedPartition.PartStart), int64(mountedPartition.PartStart+int32(binary.Size(sb)))); err != nil {
+		return err
 	}
 
 	return nil

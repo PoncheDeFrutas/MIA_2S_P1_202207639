@@ -22,7 +22,7 @@ func ParserMkDisk(tokens []string) (string, error) {
 	cmd := &MkDisk{}
 
 	args := strings.Join(tokens, " ")
-	re := regexp.MustCompile(`-size=\d+|-unit=[kKmM]|-fit=[bBfFwW]{2}|-path="[^"]+"|-path=\S+`)
+	re := regexp.MustCompile(`(?i)-size(?-i)=\d+|(?i)-unit(?-i)=[kKmM]|(?i)-fit(?-i)=[bBfFwW]{2}|(?i)-path(?-i)="[^"]+"|(?i)-path(?-i)=\S+|-.+`)
 	matches := re.FindAllString(args, -1)
 
 	for _, match := range matches {
