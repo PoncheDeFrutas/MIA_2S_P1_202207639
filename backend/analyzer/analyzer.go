@@ -4,6 +4,7 @@ import (
 	"backend/commands"
 	"backend/global"
 	"fmt"
+	"regexp"
 	"strings"
 )
 
@@ -13,17 +14,14 @@ func Analyzer(input string) string {
 	lines := strings.Split(input, "\n")
 
 	for _, line := range lines {
-		line = strings.TrimSpace(line)
+		line := strings.TrimSpace(line)
 		if line == "" || strings.HasPrefix(line, "#") {
 			outputLines = append(outputLines, line)
 			continue
 		}
 
-		tokens := strings.Fields(line)
-		if len(tokens) == 0 {
-			outputLines = append(outputLines, "Error: empty line")
-			continue
-		}
+		re := regexp.MustCompile(`\S+"[^"]+"|\S+`)
+		tokens := re.FindAllString(line, -1)
 
 		var (
 			result string

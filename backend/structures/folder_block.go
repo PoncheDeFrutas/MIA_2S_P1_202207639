@@ -58,6 +58,7 @@ func (f *FolderBlock) GetStringBuilder(nodeName string) string {
 
 	if f.BContent[2].BInode != -1 {
 		sb.WriteString(fmt.Sprintf("%s -> Inodo_%d\n", nodeName, f.BContent[2].BInode))
+		//nodeName -> Inodo_(BINODE[2])
 	}
 	if f.BContent[3].BInode != -1 {
 		sb.WriteString(fmt.Sprintf("%s -> Inodo_%d\n", nodeName, f.BContent[3].BInode))

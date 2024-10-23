@@ -4,6 +4,8 @@ import (
 	"backend/analyzer"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"io/ioutil"
+	"log"
 	"net/http"
 )
 
@@ -16,6 +18,13 @@ type ExecuteResponse struct {
 }
 
 func main() {
+
+	content, err := ioutil.ReadFile("initial.txt")
+	if err != nil {
+		log.Fatalf("Error al leer el archivo: %v", err)
+	}
+
+	processContent(string(content))
 
 	r := gin.Default()
 
@@ -41,7 +50,7 @@ func main() {
 		})
 	})
 
-	err := r.Run(":5000")
+	err = r.Run(":5000")
 
 	if err != nil {
 		return
